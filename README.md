@@ -1,73 +1,54 @@
-# React + TypeScript + Vite
+# follow-links
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A personal media tracker that connects TMDB, Jellyfin, and a local link downloader. Track movies and TV shows, sync what's already in your Jellyfin library, and queue downloads.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Search movies and TV shows via TMDB
+- Track status: wanted / downloading / downloaded
+- Sync library from Jellyfin (marks items as downloaded, imports new ones)
+- Queue downloads via [local-link-downloader](https://github.com/your-repo/local-link-downloader)
+- Content language setting — controls titles, overviews, and search results from both TMDB and Jellyfin
 
-## React Compiler
+## Setup
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Option 1 — `public/config.json` (recommended for self-hosting)
 
-## Expanding the ESLint configuration
+Drop a `config.json` in the `public/` folder before building. Values here act as defaults that can still be overridden per-user via the in-app Settings.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```json
+{
+  "tmdbApiKey": "your_tmdb_api_key",
+  "language": "en",
+  "downloaderUrl": "http://localhost:3001",
+  "downloaderToken": "your_token",
+  "movieFolderKey": "movies",
+  "tvFolderKey": "tv",
+  "jellyfinUrl": "http://192.168.1.x:8096",
+  "jellyfinApiKey": "your_jellyfin_api_key"
+}
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Option 2 — in-app Settings
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Open the gear icon and fill in the fields directly. Values are persisted in `localStorage`.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Config fields
+
+| Field | Description |
+|---|---|
+| `tmdbApiKey` | [TMDB API key](https://www.themoviedb.org/settings/api) |
+| `language` | BCP 47 language code for content (`en`, `fr`, `es`, `de`, `ja`, …) |
+| `downloaderUrl` | URL of the local-link-downloader instance |
+| `downloaderToken` | Bearer token for the downloader |
+| `movieFolderKey` | Destination folder key for movies |
+| `tvFolderKey` | Destination folder key for TV shows |
+| `jellyfinUrl` | Base URL of your Jellyfin server |
+| `jellyfinApiKey` | Jellyfin API key |
+
+## Dev
+
+```bash
+npm install
+npm run dev
 ```

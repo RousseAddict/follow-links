@@ -30,7 +30,7 @@ export function Shows() {
     setSearching(true)
     setSearchError('')
     try {
-      setResults(await searchShows(q, settings.tmdbApiKey))
+      setResults(await searchShows(q, settings.tmdbApiKey, settings.language))
     } catch {
       setSearchError('Search failed — check your TMDB API key')
     } finally {
@@ -52,7 +52,7 @@ export function Shows() {
     }
     let seasons: SeasonItem[] = []
     try {
-      seasons = (await getSeasons(show.id, settings.tmdbApiKey)).map(s => ({
+      seasons = (await getSeasons(show.id, settings.tmdbApiKey, settings.language)).map(s => ({
         seasonNumber: s.season_number,
         episodeCount: s.episode_count,
         status: 'wanted' as const,
@@ -90,7 +90,7 @@ export function Shows() {
     setSyncing(true)
     setSyncResult(null)
     try {
-      const jellyfinShows = await fetchJellyfinShows(settings.jellyfinUrl, settings.jellyfinApiKey)
+      const jellyfinShows = await fetchJellyfinShows(settings.jellyfinUrl, settings.jellyfinApiKey, settings.language)
       const byId = new Map(library.map(s => [s.id, s]))
       let added = 0, updated = 0
 
@@ -122,7 +122,7 @@ export function Shows() {
         } else {
           let seasons: SeasonItem[] = []
           try {
-            seasons = (await getSeasons(tmdbId, settings.tmdbApiKey)).map(s => ({
+            seasons = (await getSeasons(tmdbId, settings.tmdbApiKey, settings.language)).map(s => ({
               seasonNumber: s.season_number,
               episodeCount: s.episode_count,
               status: downloadedNums.has(s.season_number) ? 'downloaded' as const : 'wanted' as const,

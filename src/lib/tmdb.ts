@@ -16,17 +16,17 @@ async function tmdbFetch<T>(path: string, apiKey: string, params: Record<string,
   return res.json() as Promise<T>
 }
 
-export async function searchMovies(query: string, apiKey: string): Promise<TmdbMovie[]> {
-  const data = await tmdbFetch<{ results: TmdbMovie[] }>('/search/movie', apiKey, { query })
+export async function searchMovies(query: string, apiKey: string, language = 'en'): Promise<TmdbMovie[]> {
+  const data = await tmdbFetch<{ results: TmdbMovie[] }>('/search/movie', apiKey, { query, language })
   return data.results.slice(0, 20)
 }
 
-export async function searchShows(query: string, apiKey: string): Promise<TmdbShow[]> {
-  const data = await tmdbFetch<{ results: TmdbShow[] }>('/search/tv', apiKey, { query })
+export async function searchShows(query: string, apiKey: string, language = 'en'): Promise<TmdbShow[]> {
+  const data = await tmdbFetch<{ results: TmdbShow[] }>('/search/tv', apiKey, { query, language })
   return data.results.slice(0, 20)
 }
 
-export async function getSeasons(showId: number, apiKey: string): Promise<TmdbSeason[]> {
-  const data = await tmdbFetch<{ seasons: TmdbSeason[] }>(`/tv/${showId}`, apiKey)
+export async function getSeasons(showId: number, apiKey: string, language = 'en'): Promise<TmdbSeason[]> {
+  const data = await tmdbFetch<{ seasons: TmdbSeason[] }>(`/tv/${showId}`, apiKey, { language })
   return data.seasons.filter(s => s.season_number > 0)
 }

@@ -21,19 +21,21 @@ async function jellyfinFetch<T>(url: string, apiKey: string, params: Record<stri
   return items as T
 }
 
-export async function fetchJellyfinMovies(baseUrl: string, apiKey: string): Promise<JellyfinItem[]> {
+export async function fetchJellyfinMovies(baseUrl: string, apiKey: string, language = 'en'): Promise<JellyfinItem[]> {
   return jellyfinFetch<JellyfinItem[]>(`${baseUrl}/Items`, apiKey, {
     Recursive: 'true',
     IncludeItemTypes: 'Movie',
     Fields: 'ProviderIds,Overview',
+    Language: language,
   })
 }
 
-export async function fetchJellyfinShows(baseUrl: string, apiKey: string): Promise<JellyfinItem[]> {
+export async function fetchJellyfinShows(baseUrl: string, apiKey: string, language = 'en'): Promise<JellyfinItem[]> {
   return jellyfinFetch<JellyfinItem[]>(`${baseUrl}/Items`, apiKey, {
     Recursive: 'true',
     IncludeItemTypes: 'Series',
     Fields: 'ProviderIds,Overview',
+    Language: language,
   })
 }
 

@@ -22,6 +22,7 @@ export const KEYS = {
 
 export const SETTING_DEFAULTS: Settings = {
   tmdbApiKey: '',
+  language: 'en',
   downloaderUrl: 'http://localhost:3001',
   downloaderToken: '',
   movieFolderKey: 'movies',

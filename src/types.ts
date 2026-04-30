@@ -32,6 +32,7 @@ export interface ShowItem {
 
 export interface Settings {
   tmdbApiKey: string
+  language: string
   downloaderUrl: string
   downloaderToken: string
   movieFolderKey: string

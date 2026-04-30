@@ -2,6 +2,19 @@ import { useState } from 'react'
 import { getStore, setStore, KEYS, SETTING_DEFAULTS } from '../lib/store'
 import type { Settings } from '../types'
 
+const LANGUAGES = [
+  { code: 'en', label: 'English' },
+  { code: 'fr', label: 'French' },
+  { code: 'es', label: 'Spanish' },
+  { code: 'de', label: 'German' },
+  { code: 'it', label: 'Italian' },
+  { code: 'pt', label: 'Portuguese' },
+  { code: 'ja', label: 'Japanese' },
+  { code: 'ko', label: 'Korean' },
+  { code: 'zh', label: 'Chinese' },
+  { code: 'ru', label: 'Russian' },
+]
+
 interface Props {
   onClose: () => void
 }
@@ -12,7 +25,7 @@ export function SettingsModal({ onClose }: Props) {
     ...getStore<Partial<Settings>>(KEYS.settings, {}),
   }))
 
-  const set = (field: keyof Settings) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const set = (field: keyof Settings) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [field]: e.target.value }))
 
   const save = () => {
@@ -33,6 +46,18 @@ export function SettingsModal({ onClose }: Props) {
 
         <Section label="TMDB">
           <Field label="API Key" value={form.tmdbApiKey} onChange={set('tmdbApiKey')} placeholder="your_tmdb_api_key" />
+          <div className="flex flex-col gap-1">
+            <label className="text-gray-400 text-xs">Content language</label>
+            <select
+              value={form.language}
+              onChange={set('language')}
+              className="bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {LANGUAGES.map(l => (
+                <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
+            </select>
+          </div>
         </Section>
 
         <Section label="local-link-downloader">

@@ -30,7 +30,7 @@ export function Movies() {
     setSearching(true)
     setSearchError('')
     try {
-      setResults(await searchMovies(q, settings.tmdbApiKey))
+      setResults(await searchMovies(q, settings.tmdbApiKey, settings.language))
     } catch {
       setSearchError('Search failed — check your TMDB API key')
     } finally {
@@ -68,7 +68,7 @@ export function Movies() {
     setSyncing(true)
     setSyncResult(null)
     try {
-      const jellyfinMovies = await fetchJellyfinMovies(settings.jellyfinUrl, settings.jellyfinApiKey)
+      const jellyfinMovies = await fetchJellyfinMovies(settings.jellyfinUrl, settings.jellyfinApiKey, settings.language)
       const byId = new Map(library.map(m => [m.id, m]))
       let added = 0, updated = 0
 

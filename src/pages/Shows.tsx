@@ -3,11 +3,11 @@ import { SearchBar } from '../components/SearchBar'
 import { MediaCard } from '../components/MediaCard'
 import { SeasonPanel } from '../components/SeasonPanel'
 import { DownloadModal } from '../components/DownloadModal'
-import { searchShows, getSeasons, posterUrl } from '../lib/tmdb'
+import { searchShows, getSeasons, getShowImdbId, posterUrl } from '../lib/tmdb'
 import { fetchJellyfinShows, fetchJellyfinSeasons, jellyfinPosterUrl, parseTmdbId } from '../lib/jellyfin'
 import { getStore, setStore, KEYS } from '../lib/store'
 import { useSettings } from '../contexts/settings'
-import { useSyncFromJellyfin } from '../hooks'
+import { useSyncFromJellyfin, patchImdbId } from '../hooks'
 import type { ShowItem, SeasonItem, TmdbShow } from '../types'
 
 function updateSeason(
@@ -74,6 +74,7 @@ export function Shows() {
     } catch { /* add with empty seasons rather than failing */ }
     try {
       save([{ ...base, seasons }, ...library])
+      patchImdbId(show.id, getShowImdbId(show.id, settings.tmdbApiKey), setLibrary, KEYS.shows)
     } finally {
       setAddingId(null)
     }
@@ -259,6 +260,8 @@ export function Shows() {
           title={`${downloadTarget.show.title} — Season ${downloadTarget.season.seasonNumber}`}
           searchQuery={`${downloadTarget.show.title} S${String(downloadTarget.season.seasonNumber).padStart(2, '0')}`}
           folderKey={settings.tvFolderKey}
+          imdbId={downloadTarget.show.imdbId}
+          season={downloadTarget.season.seasonNumber}
           onSuccess={jobId => handleDownloadSuccess(downloadTarget.show.id, downloadTarget.season.seasonNumber, jobId)}
           onClose={() => setDownloadTarget(null)}
         />

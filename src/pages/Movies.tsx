@@ -2,11 +2,11 @@ import { useState, useCallback } from 'react'
 import { SearchBar } from '../components/SearchBar'
 import { MediaCard } from '../components/MediaCard'
 import { DownloadModal } from '../components/DownloadModal'
-import { searchMovies } from '../lib/tmdb'
+import { searchMovies, getMovieImdbId } from '../lib/tmdb'
 import { fetchJellyfinMovies, jellyfinPosterUrl, parseTmdbId } from '../lib/jellyfin'
 import { getStore, setStore, KEYS } from '../lib/store'
 import { useSettings } from '../contexts/settings'
-import { useSyncFromJellyfin } from '../hooks'
+import { useSyncFromJellyfin, patchImdbId } from '../hooks'
 import type { MovieItem, TmdbMovie, MediaStatus } from '../types'
 
 type Filter = 'all' | MediaStatus
@@ -47,16 +47,20 @@ export function Movies() {
 
   const addToLibrary = (movie: TmdbMovie) => {
     if (library.some(m => m.id === movie.id)) return
-    save([{
+    const item = {
       id: movie.id,
       title: movie.title,
       year: movie.release_date?.slice(0, 4) ?? '',
       overview: movie.overview,
       posterPath: movie.poster_path ?? '',
-      status: 'wanted',
+      status: 'wanted' as const,
       monitored: true,
       addedAt: new Date().toISOString(),
-    }, ...library])
+    }
+    save([item, ...library])
+    if (settings.tmdbApiKey) {
+      patchImdbId(movie.id, getMovieImdbId(movie.id, settings.tmdbApiKey), setLibrary, KEYS.movies)
+    }
   }
 
   const updateStatus = (id: number, status: MediaStatus) =>
@@ -198,6 +202,7 @@ export function Movies() {
           title={`${downloading.title} (${downloading.year})`}
           searchQuery={`${downloading.title} ${downloading.year}`}
           folderKey={settings.movieFolderKey}
+          imdbId={downloading.imdbId}
           onSuccess={jobId => handleDownloadSuccess(downloading.id, jobId)}
           onClose={() => setDownloading(null)}
         />

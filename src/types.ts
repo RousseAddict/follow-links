@@ -9,6 +9,7 @@ export interface MovieItem {
   status: MediaStatus
   monitored: boolean
   addedAt: string
+  imdbId?: string
   downloadJobId?: string
 }
 
@@ -27,6 +28,7 @@ export interface ShowItem {
   posterPath: string
   monitored: boolean
   addedAt: string
+  imdbId?: string
   seasons: SeasonItem[]
 }
 

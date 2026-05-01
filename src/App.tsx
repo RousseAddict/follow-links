@@ -62,7 +62,7 @@ export default function App() {
         const raw = { ...SETTING_DEFAULTS, ...safe, ...stored }
         const merged = Object.fromEntries(
           (Object.keys(SETTING_DEFAULTS) as (keyof Settings)[]).map(k => [k, raw[k]])
-        ) as Settings
+        ) as unknown as Settings
         setStore(KEYS.settings, merged)
         migrateData()
         if (!merged.tmdbApiKey) setSettingsOpen(true)

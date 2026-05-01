@@ -30,3 +30,13 @@ export async function getSeasons(showId: number, apiKey: string, language = 'en'
   const data = await tmdbFetch<{ seasons: TmdbSeason[] }>(`/tv/${showId}`, apiKey, { language })
   return data.seasons.filter(s => s.season_number > 0)
 }
+
+export async function getMovieImdbId(movieId: number, apiKey: string): Promise<string | null> {
+  const data = await tmdbFetch<{ imdb_id?: string }>(`/movie/${movieId}/external_ids`, apiKey)
+  return data.imdb_id ?? null
+}
+
+export async function getShowImdbId(showId: number, apiKey: string): Promise<string | null> {
+  const data = await tmdbFetch<{ imdb_id?: string }>(`/tv/${showId}/external_ids`, apiKey)
+  return data.imdb_id ?? null
+}

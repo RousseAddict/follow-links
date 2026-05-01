@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { fetchJobs } from '../lib/downloader'
-import { getStore, setStore, KEYS, SETTING_DEFAULTS } from '../lib/store'
+import { getStore, setStore, KEYS } from '../lib/store'
+import { useSettings } from '../contexts/settings'
 import type { DownloaderJob, MovieItem, ShowItem } from '../types'
 
 const STATUS_CLASSES: Record<DownloaderJob['status'], string> = {
@@ -32,8 +33,7 @@ function syncCompletedJobs(jobs: DownloaderJob[]) {
 }
 
 export function Queue() {
-  const [settings] = useState(() => getStore(KEYS.settings, SETTING_DEFAULTS))
-
+  const { settings } = useSettings()
   const [jobs, setJobs] = useState<DownloaderJob[]>([])
   const [error, setError] = useState('')
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)

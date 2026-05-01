@@ -18,7 +18,10 @@ export const KEYS = {
   movies: 'fl:movies',
   shows: 'fl:shows',
   settings: 'fl:settings',
+  schemaVersion: 'fl:schemaVersion',
 } as const
+
+export const SCHEMA_VERSION = 1
 
 export const SETTING_DEFAULTS: Settings = {
   tmdbApiKey: '',

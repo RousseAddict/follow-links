@@ -4,13 +4,21 @@ import { MediaCard } from '../components/MediaCard'
 import { DownloadModal } from '../components/DownloadModal'
 import { searchMovies } from '../lib/tmdb'
 import { fetchJellyfinMovies, jellyfinPosterUrl, parseTmdbId } from '../lib/jellyfin'
-import { getStore, setStore, KEYS, SETTING_DEFAULTS } from '../lib/store'
-import type { MovieItem, TmdbMovie, MediaStatus, SyncResult } from '../types'
+import { getStore, setStore, KEYS } from '../lib/store'
+import { useSettings } from '../contexts/settings'
+import { useSyncFromJellyfin } from '../hooks'
+import type { MovieItem, TmdbMovie, MediaStatus } from '../types'
 
 type Filter = 'all' | MediaStatus
 
+const STATUS_ORDER: Record<MediaStatus, number> = { wanted: 0, downloading: 1, downloaded: 2 }
+
+function upgradeStatus(current: MediaStatus, next: MediaStatus): MediaStatus {
+  return STATUS_ORDER[next] > STATUS_ORDER[current] ? next : current
+}
+
 export function Movies() {
-  const [settings] = useState(() => getStore(KEYS.settings, SETTING_DEFAULTS))
+  const { settings } = useSettings()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<TmdbMovie[]>([])
   const [library, setLibrary] = useState<MovieItem[]>(() => getStore(KEYS.movies, []))
@@ -18,8 +26,7 @@ export function Movies() {
   const [downloading, setDownloading] = useState<MovieItem | null>(null)
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
-  const [syncing, setSyncing] = useState(false)
-  const [syncResult, setSyncResult] = useState<SyncResult>(null)
+  const { syncing, syncResult, sync } = useSyncFromJellyfin()
 
   const save = (next: MovieItem[]) => { setLibrary(next); setStore(KEYS.movies, next) }
 
@@ -36,7 +43,7 @@ export function Movies() {
     } finally {
       setSearching(false)
     }
-  }, [settings.tmdbApiKey])
+  }, [settings.tmdbApiKey, settings.language])
 
   const addToLibrary = (movie: TmdbMovie) => {
     if (library.some(m => m.id === movie.id)) return
@@ -55,58 +62,53 @@ export function Movies() {
   const updateStatus = (id: number, status: MediaStatus) =>
     save(library.map(m => m.id === id ? { ...m, status } : m))
 
+  const removeFromLibrary = (id: number) =>
+    save(library.filter(m => m.id !== id))
+
   const handleDownloadSuccess = (movieId: number, jobId: string) => {
     save(library.map(m => m.id === movieId ? { ...m, status: 'downloading' as const, downloadJobId: jobId } : m))
     setDownloading(null)
   }
 
-  const syncFromJellyfin = async () => {
-    if (!settings.jellyfinUrl || !settings.jellyfinApiKey) {
-      setSyncResult({ ok: false, message: 'Set Jellyfin URL and API key in Settings first' })
-      return
-    }
-    setSyncing(true)
-    setSyncResult(null)
-    try {
-      const jellyfinMovies = await fetchJellyfinMovies(settings.jellyfinUrl, settings.jellyfinApiKey, settings.language)
-      const byId = new Map(library.map(m => [m.id, m]))
-      let added = 0, updated = 0
+  const syncFromJellyfin = () => sync(async () => {
+    const jellyfinMovies = await fetchJellyfinMovies(settings.jellyfinUrl, settings.jellyfinApiKey, settings.language)
+    const byId = new Map(library.map(m => [m.id, m]))
+    let added = 0, updated = 0
 
-      for (const jm of jellyfinMovies) {
-        const tmdbId = parseTmdbId(jm)
-        if (tmdbId === null) continue
+    for (const jm of jellyfinMovies) {
+      const tmdbId = parseTmdbId(jm)
+      if (tmdbId === null) continue
 
-        const poster = jm.ImageTags?.Primary
-          ? jellyfinPosterUrl(settings.jellyfinUrl, jm.Id, settings.jellyfinApiKey)
-          : ''
+      const poster = jm.ImageTags?.Primary
+        ? jellyfinPosterUrl(settings.jellyfinUrl, jm.Id, settings.jellyfinApiKey)
+        : ''
 
-        if (byId.has(tmdbId)) {
-          const existing = byId.get(tmdbId)!
-          byId.set(tmdbId, { ...existing, status: 'downloaded', posterPath: poster || existing.posterPath })
-          updated++
-        } else {
-          byId.set(tmdbId, {
-            id: tmdbId,
-            title: jm.Name,
-            year: jm.ProductionYear ? String(jm.ProductionYear) : '',
-            overview: jm.Overview ?? '',
-            posterPath: poster,
-            status: 'downloaded',
-            monitored: true,
-            addedAt: new Date().toISOString(),
-          })
-          added++
-        }
+      if (byId.has(tmdbId)) {
+        const existing = byId.get(tmdbId)!
+        byId.set(tmdbId, {
+          ...existing,
+          status: upgradeStatus(existing.status, 'downloaded'),
+          posterPath: poster || existing.posterPath,
+        })
+        updated++
+      } else {
+        byId.set(tmdbId, {
+          id: tmdbId,
+          title: jm.Name,
+          year: jm.ProductionYear ? String(jm.ProductionYear) : '',
+          overview: jm.Overview ?? '',
+          posterPath: poster,
+          status: 'downloaded',
+          monitored: true,
+          addedAt: new Date().toISOString(),
+        })
+        added++
       }
-
-      save(Array.from(byId.values()))
-      setSyncResult({ ok: true, message: `Synced ${added + updated} movies — ${added} new, ${updated} updated` })
-    } catch (e) {
-      setSyncResult({ ok: false, message: e instanceof Error ? `Sync failed: ${e.message}` : 'Sync failed' })
-    } finally {
-      setSyncing(false)
     }
-  }
+
+    save(Array.from(byId.values()))
+    return `Synced ${added + updated} movies — ${added} new, ${updated} updated`
+  })
 
   const libraryIds = new Set(library.map(m => m.id))
   const filteredLibrary = filter === 'all' ? library : library.filter(m => m.status === filter)
@@ -184,6 +186,7 @@ export function Movies() {
                 isInLibrary
                 onStatusChange={status => updateStatus(movie.id, status)}
                 onDownload={() => setDownloading(movie)}
+                onRemove={() => removeFromLibrary(movie.id)}
               />
             ))}
           </div>

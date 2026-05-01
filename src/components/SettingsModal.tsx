@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getStore, setStore, KEYS, SETTING_DEFAULTS } from '../lib/store'
+import { useSettings } from '../contexts/settings'
 import type { Settings } from '../types'
 
 const LANGUAGES = [
@@ -20,16 +20,14 @@ interface Props {
 }
 
 export function SettingsModal({ onClose }: Props) {
-  const [form, setForm] = useState<Settings>(() => ({
-    ...SETTING_DEFAULTS,
-    ...getStore<Partial<Settings>>(KEYS.settings, {}),
-  }))
+  const { settings, saveSettings } = useSettings()
+  const [form, setForm] = useState<Settings>(settings)
 
   const set = (field: keyof Settings) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [field]: e.target.value }))
 
   const save = () => {
-    setStore(KEYS.settings, form)
+    saveSettings(form)
     onClose()
   }
 
@@ -86,7 +84,9 @@ export function SettingsModal({ onClose }: Props) {
   )
 }
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
+interface SectionProps { label: string; children: React.ReactNode }
+
+function Section({ label, children }: SectionProps) {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide">{label}</p>
@@ -95,15 +95,15 @@ function Section({ label, children }: { label: string; children: React.ReactNode
   )
 }
 
-function Field({
-  label, value, onChange, placeholder, type = 'text',
-}: {
+interface FieldProps {
   label: string
   value: string
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   placeholder: string
   type?: string
-}) {
+}
+
+function Field({ label, value, onChange, placeholder, type = 'text' }: FieldProps) {
   return (
     <div className="flex flex-col gap-1">
       <label className="text-gray-400 text-xs">{label}</label>

@@ -4,6 +4,10 @@ function headers(apiKey: string) {
   return { 'X-Emby-Token': apiKey }
 }
 
+function normalizeUrl(base: string): string {
+  return base.replace(/\/$/, '')
+}
+
 export function parseTmdbId(item: JellyfinItem): number | null {
   const str = item.ProviderIds?.Tmdb
   if (!str) return null
@@ -17,12 +21,13 @@ async function jellyfinFetch<T>(url: string, apiKey: string, params: Record<stri
   const res = await fetch(requestUrl.toString(), { headers: headers(apiKey) })
   if (!res.ok) throw new Error(`Jellyfin ${res.status}: ${res.statusText}`)
   const data = await res.json() as { Items?: unknown; [k: string]: unknown }
-  const items = Array.isArray(data.Items) ? data.Items : Array.isArray(data) ? data : []
+  const items = Array.isArray(data.Items) ? data.Items : Array.isArray(data) ? data : null
+  if (items === null) throw new Error('Unexpected Jellyfin response shape')
   return items as T
 }
 
 export async function fetchJellyfinMovies(baseUrl: string, apiKey: string, language = 'en'): Promise<JellyfinItem[]> {
-  return jellyfinFetch<JellyfinItem[]>(`${baseUrl}/Items`, apiKey, {
+  return jellyfinFetch<JellyfinItem[]>(`${normalizeUrl(baseUrl)}/Items`, apiKey, {
     Recursive: 'true',
     IncludeItemTypes: 'Movie',
     Fields: 'ProviderIds,Overview',
@@ -31,7 +36,7 @@ export async function fetchJellyfinMovies(baseUrl: string, apiKey: string, langu
 }
 
 export async function fetchJellyfinShows(baseUrl: string, apiKey: string, language = 'en'): Promise<JellyfinItem[]> {
-  return jellyfinFetch<JellyfinItem[]>(`${baseUrl}/Items`, apiKey, {
+  return jellyfinFetch<JellyfinItem[]>(`${normalizeUrl(baseUrl)}/Items`, apiKey, {
     Recursive: 'true',
     IncludeItemTypes: 'Series',
     Fields: 'ProviderIds,Overview',
@@ -44,9 +49,10 @@ export async function fetchJellyfinSeasons(
   baseUrl: string,
   apiKey: string,
 ): Promise<JellyfinSeason[]> {
-  return jellyfinFetch<JellyfinSeason[]>(`${baseUrl}/Shows/${jellyfinSeriesId}/Seasons`, apiKey)
+  return jellyfinFetch<JellyfinSeason[]>(`${normalizeUrl(baseUrl)}/Shows/${jellyfinSeriesId}/Seasons`, apiKey)
 }
 
 export function jellyfinPosterUrl(baseUrl: string, itemId: string, apiKey: string): string {
-  return `${baseUrl}/Items/${itemId}/Images/Primary?width=342&api_key=${apiKey}`
+  // api_key in the URL is unavoidable here — <img> elements cannot send custom headers
+  return `${normalizeUrl(baseUrl)}/Items/${itemId}/Images/Primary?width=342&api_key=${apiKey}`
 }

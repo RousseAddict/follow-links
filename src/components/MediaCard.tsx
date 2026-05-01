@@ -1,5 +1,6 @@
 import type { MediaStatus } from '../types'
 import { posterUrl } from '../lib/tmdb'
+import { STATUS_BADGE } from '../constants'
 
 interface Props {
   title: string
@@ -10,13 +11,8 @@ interface Props {
   onAdd?: () => void
   onDownload?: () => void
   onStatusChange?: (status: MediaStatus) => void
+  onRemove?: () => void
   onClick?: () => void
-}
-
-const STATUS_BADGE: Record<MediaStatus, string> = {
-  wanted: 'bg-yellow-600 text-yellow-100',
-  downloading: 'bg-blue-600 text-blue-100',
-  downloaded: 'bg-green-700 text-green-100',
 }
 
 export function MediaCard({
@@ -28,6 +24,7 @@ export function MediaCard({
   onAdd,
   onDownload,
   onStatusChange,
+  onRemove,
   onClick,
 }: Props) {
   return (
@@ -86,6 +83,16 @@ export function MediaCard({
               title="Download"
             >
               ↓
+            </button>
+          )}
+          {isInLibrary && onRemove && (
+            <button
+              onClick={status !== 'downloaded' ? onRemove : undefined}
+              disabled={status === 'downloaded'}
+              className={`text-[11px] rounded px-2 py-1 ${status === 'downloaded' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-800 hover:bg-red-900 text-gray-500 hover:text-red-300'}`}
+              title={status === 'downloaded' ? 'Cannot remove downloaded media' : 'Remove from library'}
+            >
+              ✕
             </button>
           )}
         </div>

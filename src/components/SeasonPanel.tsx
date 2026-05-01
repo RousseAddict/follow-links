@@ -1,16 +1,10 @@
 import type { SeasonItem } from '../types'
+import { SEASON_STATUS_CLASSES } from '../constants'
 
 interface Props {
   seasons: SeasonItem[]
   onDownload: (season: SeasonItem) => void
   onStatusChange: (seasonNumber: number, status: SeasonItem['status']) => void
-}
-
-const STATUS_CLASSES: Record<SeasonItem['status'], string> = {
-  wanted: 'bg-yellow-600 text-yellow-100',
-  downloading: 'bg-blue-600 text-blue-100',
-  downloaded: 'bg-green-700 text-green-100',
-  unmonitored: 'bg-gray-700 text-gray-400',
 }
 
 export function SeasonPanel({ seasons, onDownload, onStatusChange }: Props) {
@@ -24,7 +18,7 @@ export function SeasonPanel({ seasons, onDownload, onStatusChange }: Props) {
           <span className="text-gray-500 text-xs w-24 shrink-0">
             {season.episodeCount} eps
           </span>
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${STATUS_CLASSES[season.status] ?? 'bg-gray-700 text-gray-400'}`}>
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${SEASON_STATUS_CLASSES[season.status] ?? 'bg-gray-700 text-gray-400'}`}>
             {season.status}
           </span>
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { sendMagnet } from '../lib/downloader'
-import { getStore, KEYS, SETTING_DEFAULTS } from '../lib/store'
+import { useSettings } from '../contexts/settings'
 
 interface Props {
   title: string
@@ -11,8 +11,7 @@ interface Props {
 }
 
 export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, onSuccess, onClose }: Props) {
-  const [settings] = useState(() => getStore(KEYS.settings, SETTING_DEFAULTS))
-
+  const { settings } = useSettings()
   const [magnet, setMagnet] = useState('')
   const [folder, setFolder] = useState(defaultFolder)
   const [loading, setLoading] = useState(false)

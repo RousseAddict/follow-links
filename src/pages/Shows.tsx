@@ -5,11 +5,25 @@ import { SeasonPanel } from '../components/SeasonPanel'
 import { DownloadModal } from '../components/DownloadModal'
 import { searchShows, getSeasons, posterUrl } from '../lib/tmdb'
 import { fetchJellyfinShows, fetchJellyfinSeasons, jellyfinPosterUrl, parseTmdbId } from '../lib/jellyfin'
-import { getStore, setStore, KEYS, SETTING_DEFAULTS } from '../lib/store'
-import type { ShowItem, SeasonItem, TmdbShow, SyncResult } from '../types'
+import { getStore, setStore, KEYS } from '../lib/store'
+import { useSettings } from '../contexts/settings'
+import { useSyncFromJellyfin } from '../hooks'
+import type { ShowItem, SeasonItem, TmdbShow } from '../types'
+
+function updateSeason(
+  library: ShowItem[],
+  showId: number,
+  seasonNumber: number,
+  patch: Partial<SeasonItem>,
+): ShowItem[] {
+  return library.map(show => show.id !== showId ? show : {
+    ...show,
+    seasons: (show.seasons ?? []).map(s => s.seasonNumber === seasonNumber ? { ...s, ...patch } : s),
+  })
+}
 
 export function Shows() {
-  const [settings] = useState(() => getStore(KEYS.settings, SETTING_DEFAULTS))
+  const { settings } = useSettings()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<TmdbShow[]>([])
   const [library, setLibrary] = useState<ShowItem[]>(() => getStore(KEYS.shows, []))
@@ -18,8 +32,7 @@ export function Shows() {
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
   const [addingId, setAddingId] = useState<number | null>(null)
-  const [syncing, setSyncing] = useState(false)
-  const [syncResult, setSyncResult] = useState<SyncResult>(null)
+  const { syncing, syncResult, sync } = useSyncFromJellyfin()
 
   const save = (next: ShowItem[]) => { setLibrary(next); setStore(KEYS.shows, next) }
 
@@ -36,7 +49,7 @@ export function Shows() {
     } finally {
       setSearching(false)
     }
-  }, [settings.tmdbApiKey])
+  }, [settings.tmdbApiKey, settings.language])
 
   const addToLibrary = async (show: TmdbShow) => {
     if (library.some(s => s.id === show.id)) return
@@ -66,94 +79,80 @@ export function Shows() {
     }
   }
 
-  const updateSeasonStatus = (showId: number, seasonNumber: number, status: SeasonItem['status']) =>
-    save(library.map(show => show.id !== showId ? show : {
-      ...show,
-      seasons: (show.seasons ?? []).map(s => s.seasonNumber === seasonNumber ? { ...s, status } : s),
-    }))
+  const removeFromLibrary = (id: number) =>
+    save(library.filter(s => s.id !== id))
+
+  const handleStatusChange = (showId: number, seasonNumber: number, status: SeasonItem['status']) =>
+    save(updateSeason(library, showId, seasonNumber, { status }))
 
   const handleDownloadSuccess = (showId: number, seasonNumber: number, jobId: string) => {
-    save(library.map(show => show.id !== showId ? show : {
-      ...show,
-      seasons: (show.seasons ?? []).map(s =>
-        s.seasonNumber === seasonNumber ? { ...s, status: 'downloading' as const, downloadJobId: jobId } : s,
-      ),
-    }))
+    save(updateSeason(library, showId, seasonNumber, { status: 'downloading', downloadJobId: jobId }))
     setDownloadTarget(null)
   }
 
-  const syncFromJellyfin = async () => {
-    if (!settings.jellyfinUrl || !settings.jellyfinApiKey) {
-      setSyncResult({ ok: false, message: 'Set Jellyfin URL and API key in Settings first' })
-      return
-    }
-    setSyncing(true)
-    setSyncResult(null)
-    try {
-      const jellyfinShows = await fetchJellyfinShows(settings.jellyfinUrl, settings.jellyfinApiKey, settings.language)
-      const byId = new Map(library.map(s => [s.id, s]))
-      let added = 0, updated = 0
+  const syncFromJellyfin = () => sync(async () => {
+    const jellyfinShows = await fetchJellyfinShows(settings.jellyfinUrl, settings.jellyfinApiKey, settings.language)
+    const byId = new Map(library.map(s => [s.id, s]))
+    let added = 0, updated = 0
 
-      for (const js of jellyfinShows) {
-        const tmdbId = parseTmdbId(js)
-        if (tmdbId === null) continue
+    for (const js of jellyfinShows) {
+      const tmdbId = parseTmdbId(js)
+      if (tmdbId === null) continue
 
-        // Per-show try/catch so one bad season fetch doesn't abort the entire sync
-        let downloadedNums = new Set<number>()
+      let downloadedNums = new Set<number>()
+      try {
+        const jellyfinSeasons = await fetchJellyfinSeasons(js.Id, settings.jellyfinUrl, settings.jellyfinApiKey)
+        downloadedNums = new Set(jellyfinSeasons.map(s => s.IndexNumber))
+      } catch { /* skip season status for this show, still import it */ }
+
+      const poster = js.ImageTags?.Primary
+        ? jellyfinPosterUrl(settings.jellyfinUrl, js.Id, settings.jellyfinApiKey)
+        : ''
+
+      if (byId.has(tmdbId)) {
+        const existing = byId.get(tmdbId)!
+        const existingNums = new Set(existing.seasons.map(s => s.seasonNumber))
+        const mergedSeasons = [
+          ...existing.seasons.map(s =>
+            downloadedNums.has(s.seasonNumber) ? { ...s, status: 'downloaded' as const } : s,
+          ),
+          ...Array.from(downloadedNums)
+            .filter(n => !existingNums.has(n))
+            .map(n => ({ seasonNumber: n, episodeCount: 0, status: 'downloaded' as const, monitored: true })),
+        ].sort((a, b) => a.seasonNumber - b.seasonNumber)
+
+        byId.set(tmdbId, { ...existing, posterPath: poster || existing.posterPath, seasons: mergedSeasons })
+        updated++
+      } else {
+        let seasons: SeasonItem[] = []
         try {
-          const jellyfinSeasons = await fetchJellyfinSeasons(js.Id, settings.jellyfinUrl, settings.jellyfinApiKey)
-          downloadedNums = new Set(jellyfinSeasons.map(s => s.IndexNumber))
-        } catch { /* skip season status for this show, still import it */ }
-
-        const poster = js.ImageTags?.Primary
-          ? jellyfinPosterUrl(settings.jellyfinUrl, js.Id, settings.jellyfinApiKey)
-          : ''
-
-        if (byId.has(tmdbId)) {
-          const existing = byId.get(tmdbId)!
-          byId.set(tmdbId, {
-            ...existing,
-            posterPath: poster || existing.posterPath,
-            seasons: (existing.seasons ?? []).map(s =>
-              downloadedNums.has(s.seasonNumber) ? { ...s, status: 'downloaded' as const } : s,
-            ),
-          })
-          updated++
-        } else {
-          let seasons: SeasonItem[] = []
-          try {
-            seasons = (await getSeasons(tmdbId, settings.tmdbApiKey, settings.language)).map(s => ({
-              seasonNumber: s.season_number,
-              episodeCount: s.episode_count,
-              status: downloadedNums.has(s.season_number) ? 'downloaded' as const : 'wanted' as const,
-              monitored: true,
-            }))
-          } catch {
-            seasons = Array.from(downloadedNums).sort((a, b) => a - b).map(n => ({
-              seasonNumber: n, episodeCount: 0, status: 'downloaded' as const, monitored: true,
-            }))
-          }
-          byId.set(tmdbId, {
-            id: tmdbId,
-            title: js.Name,
-            overview: js.Overview ?? '',
-            posterPath: poster,
+          seasons = (await getSeasons(tmdbId, settings.tmdbApiKey, settings.language)).map(s => ({
+            seasonNumber: s.season_number,
+            episodeCount: s.episode_count,
+            status: downloadedNums.has(s.season_number) ? 'downloaded' as const : 'wanted' as const,
             monitored: true,
-            addedAt: new Date().toISOString(),
-            seasons,
-          })
-          added++
+          }))
+        } catch {
+          seasons = Array.from(downloadedNums).sort((a, b) => a - b).map(n => ({
+            seasonNumber: n, episodeCount: 0, status: 'downloaded' as const, monitored: true,
+          }))
         }
+        byId.set(tmdbId, {
+          id: tmdbId,
+          title: js.Name,
+          overview: js.Overview ?? '',
+          posterPath: poster,
+          monitored: true,
+          addedAt: new Date().toISOString(),
+          seasons,
+        })
+        added++
       }
-
-      save(Array.from(byId.values()))
-      setSyncResult({ ok: true, message: `Synced ${added + updated} shows — ${added} new, ${updated} updated` })
-    } catch (e) {
-      setSyncResult({ ok: false, message: e instanceof Error ? `Sync failed: ${e.message}` : 'Sync failed' })
-    } finally {
-      setSyncing(false)
     }
-  }
+
+    save(Array.from(byId.values()))
+    return `Synced ${added + updated} shows — ${added} new, ${updated} updated`
+  })
 
   const libraryIds = new Set(library.map(s => s.id))
 
@@ -212,34 +211,45 @@ export function Shows() {
           <p className="text-gray-600 text-sm">No shows yet. Search and add some above.</p>
         ) : (
           <div className="flex flex-col gap-4">
-            {library.map(show => (
-              <div key={show.id} className="bg-gray-900 rounded-xl overflow-hidden">
-                <div
-                  className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-800 transition-colors"
-                  onClick={() => setExpandedId(expandedId === show.id ? null : show.id)}
-                >
-                  {show.posterPath && (
-                    <img
-                      src={posterUrl(show.posterPath, 'w92')}
-                      alt={show.title}
-                      className="w-10 h-14 object-cover rounded shrink-0"
+            {library.map(show => {
+              const allDownloaded = show.seasons.length > 0 && show.seasons.every(s => s.status === 'downloaded')
+              return (
+                <div key={show.id} className="bg-gray-900 rounded-xl overflow-hidden">
+                  <div
+                    className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-800 transition-colors"
+                    onClick={() => setExpandedId(expandedId === show.id ? null : show.id)}
+                  >
+                    {show.posterPath && (
+                      <img
+                        src={posterUrl(show.posterPath, 'w92')}
+                        alt={show.title}
+                        className="w-10 h-14 object-cover rounded shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-gray-100 text-sm font-medium truncate">{show.title}</p>
+                      <p className="text-gray-500 text-xs">{show.seasons.length} seasons</p>
+                    </div>
+                    <span className="text-gray-500 text-xs">{expandedId === show.id ? '▲' : '▼'}</span>
+                    <button
+                      onClick={e => { e.stopPropagation(); if (!allDownloaded) removeFromLibrary(show.id) }}
+                      disabled={allDownloaded}
+                      className={`text-xs px-1 ${allDownloaded ? 'text-gray-700 cursor-not-allowed' : 'text-gray-600 hover:text-red-400'}`}
+                      title={allDownloaded ? 'Cannot remove downloaded media' : 'Remove from library'}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {expandedId === show.id && (
+                    <SeasonPanel
+                      seasons={show.seasons ?? []}
+                      onStatusChange={(n, status) => handleStatusChange(show.id, n, status)}
+                      onDownload={season => setDownloadTarget({ show, season })}
                     />
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-gray-100 text-sm font-medium truncate">{show.title}</p>
-                    <p className="text-gray-500 text-xs">{(show.seasons ?? []).length} seasons</p>
-                  </div>
-                  <span className="text-gray-500 text-xs">{expandedId === show.id ? '▲' : '▼'}</span>
                 </div>
-                {expandedId === show.id && (
-                  <SeasonPanel
-                    seasons={show.seasons ?? []}
-                    onStatusChange={(n, status) => updateSeasonStatus(show.id, n, status)}
-                    onDownload={season => setDownloadTarget({ show, season })}
-                  />
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </section>

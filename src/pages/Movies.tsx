@@ -25,6 +25,8 @@ export function Movies() {
   const [filter, setFilter] = useState<Filter>('all')
   const [downloading, setDownloading] = useState<MovieItem | null>(null)
   const [searching, setSearching] = useState(false)
+  const [searchResetKey, setSearchResetKey] = useState(0)
+  const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null)
   const [searchError, setSearchError] = useState('')
   const { syncing, syncResult, sync } = useSyncFromJellyfin()
 
@@ -58,6 +60,11 @@ export function Movies() {
       addedAt: new Date().toISOString(),
     }
     save([item, ...library])
+    setSearchResetKey(k => k + 1)
+    setQuery('')
+    setResults([])
+    setRecentlyAddedId(movie.id)
+    setTimeout(() => setRecentlyAddedId(null), 2000)
     if (settings.tmdbApiKey) {
       patchImdbId(movie.id, getMovieImdbId(movie.id, settings.tmdbApiKey), setLibrary, KEYS.movies)
     }
@@ -121,7 +128,7 @@ export function Movies() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex-1 min-w-48">
-          <SearchBar placeholder="Search movies…" onSearch={handleSearch} />
+          <SearchBar placeholder="Search movies…" onSearch={handleSearch} resetKey={searchResetKey} />
         </div>
         <div className="flex gap-1 flex-wrap">
           {(['all', 'wanted', 'downloading', 'downloaded'] as const).map(f => (
@@ -139,7 +146,10 @@ export function Movies() {
               disabled={syncing}
               className="text-xs px-3 py-1.5 rounded-lg bg-purple-800 hover:bg-purple-700 disabled:bg-gray-800 text-purple-200 disabled:text-gray-500"
             >
-              {syncing ? 'Syncing…' : '⟳ Jellyfin'}
+              {syncing
+              ? <><svg className="animate-spin inline-block mr-1" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>Syncing…</>
+              : <><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>Jellyfin</>
+            }
             </button>
           )}
         </div>
@@ -188,6 +198,7 @@ export function Movies() {
                 posterPath={movie.posterPath}
                 status={movie.status}
                 isInLibrary
+                highlighted={movie.id === recentlyAddedId}
                 onStatusChange={status => updateStatus(movie.id, status)}
                 onDownload={() => setDownloading(movie)}
                 onRemove={() => removeFromLibrary(movie.id)}

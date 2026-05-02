@@ -8,6 +8,7 @@ interface Props {
   posterPath: string
   status?: MediaStatus
   isInLibrary?: boolean
+  highlighted?: boolean
   onAdd?: () => void
   onDownload?: () => void
   onStatusChange?: (status: MediaStatus) => void
@@ -21,6 +22,7 @@ export function MediaCard({
   posterPath,
   status,
   isInLibrary,
+  highlighted,
   onAdd,
   onDownload,
   onStatusChange,
@@ -29,7 +31,7 @@ export function MediaCard({
 }: Props) {
   return (
     <div
-      className="bg-gray-900 rounded-lg overflow-hidden flex flex-col cursor-pointer group"
+      className={`bg-gray-900 rounded-lg overflow-hidden flex flex-col cursor-pointer group transition-shadow ${highlighted ? 'ring-2 ring-indigo-400 ring-offset-2 ring-offset-gray-950' : ''}`}
       onClick={onClick}
     >
       <div className="relative aspect-[2/3] bg-gray-800">
@@ -82,7 +84,11 @@ export function MediaCard({
               className="shrink-0 w-7 h-7 flex items-center justify-center text-[13px] bg-gray-700 hover:bg-gray-600 text-gray-200 rounded"
               title="Download"
             >
-              ↓
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
             </button>
           )}
           {isInLibrary && onRemove && (
@@ -92,7 +98,10 @@ export function MediaCard({
               className={`shrink-0 w-7 h-7 flex items-center justify-center text-[13px] rounded ${status === 'downloaded' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-800 hover:bg-red-900 text-gray-500 hover:text-red-300'}`}
               title={status === 'downloaded' ? 'Cannot remove downloaded media' : 'Remove from library'}
             >
-              ✕
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
             </button>
           )}
         </div>

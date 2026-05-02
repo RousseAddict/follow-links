@@ -75,7 +75,12 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
             <h3 className="text-gray-100 font-medium">{title}</h3>
             <p className="text-gray-500 text-xs mt-0.5">Send torrent to local-link-downloader</p>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 ml-4">✕</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 ml-4">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -95,7 +100,11 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
             </span>
             {autoSearching && (
               <div className="flex items-center gap-2 py-3 text-gray-500 text-sm">
-                <span className="animate-spin">⟳</span> Searching YTS & Torrentio…
+                <svg className="animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <circle cx="12" cy="12" r="10" strokeOpacity="0.25"/>
+                  <path d="M12 2a10 10 0 0 1 10 10"/>
+                </svg>
+                Searching YTS & Torrentio…
               </div>
             )}
             {autoResults?.map((r, i) => {
@@ -117,7 +126,14 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 ml-3">
                         {r.size && <span className="text-gray-500 text-xs">{r.size}</span>}
-                        {r.seeds > 0 && <span className="text-green-500 text-xs">{r.seeds}↑</span>}
+                        {r.seeds > 0 && (
+                          <span className="flex items-center gap-0.5 text-green-500 text-xs">
+                            {r.seeds}
+                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="18 15 12 9 6 15"/>
+                            </svg>
+                          </span>
+                        )}
                         {r.language && (
                           <span className="text-xs px-1.5 py-0.5 rounded bg-blue-900 text-blue-300 font-medium">
                             {r.language}
@@ -134,7 +150,11 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
                         className="px-2.5 text-gray-600 hover:text-gray-300 border-l border-gray-700 transition-colors shrink-0"
                         title="Show full name"
                       >
-                        <span className="text-xs">{isExpanded ? '▲' : '▼'}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          {isExpanded
+                            ? <polyline points="18 15 12 9 6 15"/>
+                            : <polyline points="6 9 12 15 18 9"/>}
+                        </svg>
                       </button>
                     )}
                   </div>
@@ -157,7 +177,11 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
               className="flex items-center justify-between text-gray-500 hover:text-gray-300 text-xs py-1 transition-colors"
             >
               <span>{showManual ? 'Hide manual input' : hasResults ? 'Enter magnet manually instead' : 'Enter magnet manually'}</span>
-              <span className="text-gray-600">{showManual ? '▲' : '▼'}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
+                {showManual
+                  ? <polyline points="18 15 12 9 6 15"/>
+                  : <polyline points="6 9 12 15 18 9"/>}
+              </svg>
             </button>
 
             {showManual && (
@@ -167,7 +191,11 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
                   onClick={search1337x}
                   className="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm rounded-lg py-2"
                 >
-                  🔍 Search on 1337x
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  Search on 1337x
                 </button>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-gray-400 text-xs">Magnet link</label>

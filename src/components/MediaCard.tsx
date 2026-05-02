@@ -69,7 +69,7 @@ export function MediaCard({
             <select
               value={status}
               onChange={e => onStatusChange(e.target.value as MediaStatus)}
-              className="flex-1 text-[11px] bg-gray-800 text-gray-300 rounded px-1 py-1 border border-gray-700"
+              className="flex-1 min-w-0 text-[11px] bg-gray-800 text-gray-300 rounded px-1 py-1 border border-gray-700"
             >
               <option value="wanted">Wanted</option>
               <option value="downloading">Downloading</option>
@@ -79,7 +79,7 @@ export function MediaCard({
           {isInLibrary && onDownload && (
             <button
               onClick={onDownload}
-              className="text-[11px] bg-gray-700 hover:bg-gray-600 text-gray-200 rounded px-2 py-1"
+              className="shrink-0 w-7 h-7 flex items-center justify-center text-[13px] bg-gray-700 hover:bg-gray-600 text-gray-200 rounded"
               title="Download"
             >
               ↓
@@ -89,7 +89,7 @@ export function MediaCard({
             <button
               onClick={status !== 'downloaded' ? onRemove : undefined}
               disabled={status === 'downloaded'}
-              className={`text-[11px] rounded px-2 py-1 ${status === 'downloaded' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-800 hover:bg-red-900 text-gray-500 hover:text-red-300'}`}
+              className={`shrink-0 w-7 h-7 flex items-center justify-center text-[13px] rounded ${status === 'downloaded' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-800 hover:bg-red-900 text-gray-500 hover:text-red-300'}`}
               title={status === 'downloaded' ? 'Cannot remove downloaded media' : 'Remove from library'}
             >
               ✕

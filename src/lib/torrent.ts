@@ -5,6 +5,40 @@ export interface TorrentResult {
   seeds: number
   size: string
   source: 'yts' | 'torrentio'
+  language?: string
+}
+
+const LANG_KEYWORDS: [RegExp, string][] = [
+  [/\b(french|vostfr)\b/i, 'FR'],
+  [/\bvf\b/i, 'FR'],
+  [/\b(english)\b/i, 'EN'],
+  [/\bvo\b/i, 'EN'],
+  [/\bspanish\b/i, 'ES'],
+  [/\bgerman\b/i, 'DE'],
+  [/\bitalian\b/i, 'IT'],
+  [/\bportuguese\b/i, 'PT'],
+  [/\bjapanese\b/i, 'JA'],
+  [/\bkorean\b/i, 'KO'],
+  [/\bchinese\b/i, 'ZH'],
+  [/\brussian\b/i, 'RU'],
+  [/\bmulti\b/i, 'MULTi'],
+  [/🇫🇷/, 'FR'],
+  [/🇬🇧|🇺🇸/, 'EN'],
+  [/🇪🇸/, 'ES'],
+  [/🇩🇪/, 'DE'],
+  [/🇮🇹/, 'IT'],
+  [/🇵🇹/, 'PT'],
+  [/🇯🇵/, 'JA'],
+  [/🇰🇷/, 'KO'],
+  [/🇨🇳/, 'ZH'],
+  [/🇷🇺/, 'RU'],
+]
+
+function parseLanguage(text: string): string | undefined {
+  for (const [re, code] of LANG_KEYWORDS) {
+    if (re.test(text)) return code
+  }
+  return undefined
 }
 
 const YTS_TRACKERS = [
@@ -17,11 +51,12 @@ const YTS_TRACKERS = [
 ]
 
 function buildMagnet(hash: string, name: string): string {
-  const params = new URLSearchParams()
-  params.set('xt', `urn:btih:${hash}`)
-  params.set('dn', name)
-  for (const tr of YTS_TRACKERS) params.append('tr', tr)
-  return `magnet:?${params.toString().replace(/\+/g, '%20')}`
+  const parts = [
+    `xt=urn:btih:${hash}`,
+    `dn=${encodeURIComponent(name)}`,
+    ...YTS_TRACKERS.map(tr => `tr=${encodeURIComponent(tr)}`),
+  ]
+  return `magnet:?${parts.join('&')}`
 }
 
 async function searchYts(imdbId: string): Promise<TorrentResult[]> {
@@ -80,6 +115,7 @@ function parseTorrentioStream(stream: TorrentioStream): TorrentResult | null {
     seeds,
     size,
     source: 'torrentio',
+    language: parseLanguage(titleLine) ?? parseLanguage(stream.name ?? ''),
   }
 }
 

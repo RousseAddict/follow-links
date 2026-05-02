@@ -34,7 +34,7 @@ export function SettingsModal({ onClose }: Props) {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div
-        className="bg-gray-900 rounded-xl w-full max-w-md p-5 flex flex-col gap-4"
+        className="bg-gray-900 rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5 flex flex-col gap-4"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">

@@ -5,8 +5,8 @@ import { SeasonPanel } from '../components/SeasonPanel'
 import { DownloadModal } from '../components/DownloadModal'
 import { searchShows, getSeasons, getShowImdbId, posterUrl } from '../lib/tmdb'
 import { fetchJellyfinShows, fetchJellyfinSeasons, jellyfinPosterUrl, parseTmdbId } from '../lib/jellyfin'
-import { getStore, setStore, KEYS } from '../lib/store'
 import { useSettings } from '../contexts/settings'
+import { useLibrary } from '../contexts/library'
 import { useSyncFromJellyfin, patchImdbId } from '../hooks'
 import type { ShowItem, SeasonItem, TmdbShow } from '../types'
 
@@ -24,17 +24,15 @@ function updateSeason(
 
 export function Shows() {
   const { settings } = useSettings()
+  const { shows: library, saveShows: save } = useLibrary()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<TmdbShow[]>([])
-  const [library, setLibrary] = useState<ShowItem[]>(() => getStore(KEYS.shows, []))
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [downloadTarget, setDownloadTarget] = useState<{ show: ShowItem; season: SeasonItem } | null>(null)
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
   const [addingId, setAddingId] = useState<number | null>(null)
   const { syncing, syncResult, sync } = useSyncFromJellyfin()
-
-  const save = (next: ShowItem[]) => { setLibrary(next); setStore(KEYS.shows, next) }
 
   const handleSearch = useCallback(async (q: string) => {
     setQuery(q)
@@ -74,7 +72,7 @@ export function Shows() {
     } catch { /* add with empty seasons rather than failing */ }
     try {
       save([{ ...base, seasons }, ...library])
-      patchImdbId(show.id, getShowImdbId(show.id, settings.tmdbApiKey), setLibrary, KEYS.shows)
+      patchImdbId(show.id, getShowImdbId(show.id, settings.tmdbApiKey), [{ ...base, seasons }, ...library], save)
     } finally {
       setAddingId(null)
     }

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { fetchJobs } from '../lib/downloader'
-import { getStore, setStore, KEYS } from '../lib/store'
 import { useSettings } from '../contexts/settings'
-import type { DownloaderJob, MovieItem, ShowItem } from '../types'
+import { useLibrary } from '../contexts/library'
+import type { DownloaderJob } from '../types'
 
 const STATUS_CLASSES: Record<DownloaderJob['status'], string> = {
   queued: 'text-gray-400',
@@ -12,31 +12,32 @@ const STATUS_CLASSES: Record<DownloaderJob['status'], string> = {
   cancelled: 'text-gray-500',
 }
 
-function syncCompletedJobs(jobs: DownloaderJob[]) {
-  const doneIds = new Set(jobs.filter(j => j.status === 'done').map(j => j.id))
-  if (doneIds.size === 0) return
-
-  const movies = getStore<MovieItem[]>(KEYS.movies, [])
-  setStore(KEYS.movies, movies.map(m =>
-    m.downloadJobId && doneIds.has(m.downloadJobId) ? { ...m, status: 'downloaded' as const } : m,
-  ))
-
-  const shows = getStore<ShowItem[]>(KEYS.shows, [])
-  setStore(KEYS.shows, shows.map(s => ({
-    ...s,
-    seasons: (s.seasons ?? []).map(season =>
-      season.downloadJobId && doneIds.has(season.downloadJobId)
-        ? { ...season, status: 'downloaded' as const }
-        : season,
-    ),
-  })))
-}
-
 export function Queue() {
   const { settings } = useSettings()
+  const { movies, shows, saveMovies, saveShows } = useLibrary()
   const [jobs, setJobs] = useState<DownloaderJob[]>([])
   const [error, setError] = useState('')
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
+  const syncCompletedJobs = useCallback((jobs: DownloaderJob[]) => {
+    const doneIds = new Set(jobs.filter(j => j.status === 'done').map(j => j.id))
+    if (doneIds.size === 0) return
+
+    const nextMovies = movies.map(m =>
+      m.downloadJobId && doneIds.has(m.downloadJobId) ? { ...m, status: 'downloaded' as const } : m,
+    )
+    if (nextMovies.some((m, i) => m !== movies[i])) saveMovies(nextMovies)
+
+    const nextShows = shows.map(s => ({
+      ...s,
+      seasons: (s.seasons ?? []).map(season =>
+        season.downloadJobId && doneIds.has(season.downloadJobId)
+          ? { ...season, status: 'downloaded' as const }
+          : season,
+      ),
+    }))
+    if (nextShows.some((s, i) => s !== shows[i])) saveShows(nextShows)
+  }, [movies, shows, saveMovies, saveShows])
 
   const load = useCallback(async () => {
     if (!settings.downloaderUrl) { setError('Downloader URL not configured — check Settings'); return }
@@ -49,7 +50,7 @@ export function Queue() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to reach downloader')
     }
-  }, [settings.downloaderUrl, settings.downloaderToken])
+  }, [settings.downloaderUrl, settings.downloaderToken, syncCompletedJobs])
 
   useEffect(() => {
     load()

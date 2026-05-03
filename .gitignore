@@ -12,9 +12,6 @@ dist
 dist-ssr
 *.local
 
-# Local config (contains API keys — do not commit)
-public/config.json
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

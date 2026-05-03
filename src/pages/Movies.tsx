@@ -4,8 +4,8 @@ import { MediaCard } from '../components/MediaCard'
 import { DownloadModal } from '../components/DownloadModal'
 import { searchMovies, getMovieImdbId } from '../lib/tmdb'
 import { fetchJellyfinMovies, jellyfinPosterUrl, parseTmdbId } from '../lib/jellyfin'
-import { getStore, setStore, KEYS } from '../lib/store'
 import { useSettings } from '../contexts/settings'
+import { useLibrary } from '../contexts/library'
 import { useSyncFromJellyfin, patchImdbId } from '../hooks'
 import type { MovieItem, TmdbMovie, MediaStatus } from '../types'
 
@@ -19,9 +19,9 @@ function upgradeStatus(current: MediaStatus, next: MediaStatus): MediaStatus {
 
 export function Movies() {
   const { settings } = useSettings()
+  const { movies: library, saveMovies: save } = useLibrary()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<TmdbMovie[]>([])
-  const [library, setLibrary] = useState<MovieItem[]>(() => getStore(KEYS.movies, []))
   const [filter, setFilter] = useState<Filter>('all')
   const [downloading, setDownloading] = useState<MovieItem | null>(null)
   const [searching, setSearching] = useState(false)
@@ -29,8 +29,6 @@ export function Movies() {
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null)
   const [searchError, setSearchError] = useState('')
   const { syncing, syncResult, sync } = useSyncFromJellyfin()
-
-  const save = (next: MovieItem[]) => { setLibrary(next); setStore(KEYS.movies, next) }
 
   const handleSearch = useCallback(async (q: string) => {
     setQuery(q)
@@ -66,7 +64,7 @@ export function Movies() {
     setRecentlyAddedId(movie.id)
     setTimeout(() => setRecentlyAddedId(null), 2000)
     if (settings.tmdbApiKey) {
-      patchImdbId(movie.id, getMovieImdbId(movie.id, settings.tmdbApiKey), setLibrary, KEYS.movies)
+      patchImdbId(movie.id, getMovieImdbId(movie.id, settings.tmdbApiKey), [...library, item], save)
     }
   }
 

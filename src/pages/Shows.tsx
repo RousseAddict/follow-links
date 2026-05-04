@@ -32,6 +32,8 @@ export function Shows() {
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
   const [addingId, setAddingId] = useState<number | null>(null)
+  const [searchResetKey, setSearchResetKey] = useState(0)
+  const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null)
   const { syncing, syncResult, sync } = useSyncFromJellyfin()
 
   const handleSearch = useCallback(async (q: string) => {
@@ -73,6 +75,11 @@ export function Shows() {
     try {
       save([{ ...base, seasons }, ...library])
       patchImdbId(show.id, getShowImdbId(show.id, settings.tmdbApiKey), [{ ...base, seasons }, ...library], save)
+      setSearchResetKey(k => k + 1)
+      setQuery('')
+      setResults([])
+      setRecentlyAddedId(show.id)
+      setTimeout(() => setRecentlyAddedId(null), 2000)
     } finally {
       setAddingId(null)
     }
@@ -159,7 +166,7 @@ export function Shows() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-2">
         <div className="flex-1">
-          <SearchBar placeholder="Search TV shows…" onSearch={handleSearch} />
+          <SearchBar placeholder="Search TV shows…" onSearch={handleSearch} resetKey={searchResetKey} />
         </div>
         {settings.jellyfinUrl && (
           <button
@@ -213,7 +220,7 @@ export function Shows() {
             {library.map(show => {
               const allDownloaded = show.seasons.length > 0 && show.seasons.every(s => s.status === 'downloaded')
               return (
-                <div key={show.id} className="bg-gray-900 rounded-xl overflow-hidden">
+                <div key={show.id} className={`bg-gray-900 rounded-xl overflow-hidden transition-shadow ${show.id === recentlyAddedId ? 'ring-2 ring-indigo-400 ring-offset-2 ring-offset-gray-950' : ''}`}>
                   <div
                     className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-800 transition-colors"
                     onClick={() => setExpandedId(expandedId === show.id ? null : show.id)}

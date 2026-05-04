@@ -30,7 +30,20 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
     if (!imdbId) { setShowManual(true); return }
     setAutoSearching(true)
     ;(season !== undefined ? findSeasonTorrents(imdbId, season) : findMovieTorrents(imdbId))
-      .then(results => { if (!cancelled) { setAutoResults(results); if (results.length === 0) setShowManual(true) } })
+      .then(results => {
+        if (!cancelled) {
+          const lang = settings.language?.toUpperCase()
+          const sorted = lang
+            ? [...results].sort((a, b) => {
+                const aMatch = a.language?.toUpperCase() === lang ? 1 : 0
+                const bMatch = b.language?.toUpperCase() === lang ? 1 : 0
+                return bMatch - aMatch || b.seeds - a.seeds
+              })
+            : results
+          setAutoResults(sorted)
+          if (results.length === 0) setShowManual(true)
+        }
+      })
       .catch(() => { if (!cancelled) setShowManual(true) })
       .finally(() => { if (!cancelled) setAutoSearching(false) })
     return () => { cancelled = true }

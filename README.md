@@ -7,7 +7,7 @@ A personal media tracker that connects TMDB, Jellyfin, and [local-link-downloade
 - Search movies and TV shows via TMDB
 - Track status: wanted / downloading / downloaded
 - Sync library from Jellyfin (marks items as downloaded, imports new ones)
-- Queue downloads via local-link-downloader with automatic torrent search (YTS + Torrentio)
+- Queue downloads via local-link-downloader with automatic torrent search (YTS + Torrentio + Jackett)
 - Content language setting — controls titles, overviews, and search results
 - **Cross-device sync** — library and settings are stored in a JSON file on local-link-downloader and shared across all devices on your network
 
@@ -53,6 +53,25 @@ If you don't need cross-device sync, just fill in the Settings modal on each dev
 | `TV folder key` | Destination folder key for TV shows |
 | `Jellyfin server URL` | Base URL of your Jellyfin server (optional) |
 | `Jellyfin API key` | Jellyfin API key (optional) |
+| `Jackett URL` | Base URL of your Jackett instance (optional) |
+| `Jackett API key` | Jackett API key shown in Jackett's top-right corner (optional) |
+
+## Environment variables
+
+Settings can be pre-configured at build time via a `.env` file. Copy `.env.example` to `.env` and fill in values before running `npm run dev` or `npm run build`. Any value saved through the in-app Settings modal is stored in `localStorage` and takes precedence.
+
+| Variable | Default | Description |
+|---|---|---|
+| `VITE_TMDB_API_KEY` | _(empty)_ | TMDB API key |
+| `VITE_LANGUAGE` | `en` | BCP 47 language code for TMDB results |
+| `VITE_DOWNLOADER_URL` | `http://localhost:3001` | Base URL of local-link-downloader |
+| `VITE_DOWNLOADER_TOKEN` | _(empty)_ | Bearer token for local-link-downloader |
+| `VITE_MOVIE_FOLDER_KEY` | `movies` | Destination folder key for movies |
+| `VITE_TV_FOLDER_KEY` | `tv` | Destination folder key for TV shows |
+| `VITE_JELLYFIN_URL` | _(empty)_ | Jellyfin server URL (optional) |
+| `VITE_JELLYFIN_API_KEY` | _(empty)_ | Jellyfin API key (optional) |
+| `VITE_JACKETT_URL` | _(empty)_ | Jackett server URL (optional) |
+| `VITE_JACKETT_API_KEY` | _(empty)_ | Jackett API key (optional) |
 
 ## Sync indicator
 

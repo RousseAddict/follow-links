@@ -32,4 +32,6 @@ export const SETTING_DEFAULTS: Settings = {
   tvFolderKey: 'tv',
   jellyfinUrl: '',
   jellyfinApiKey: '',
+  jackettUrl: '',
+  jackettApiKey: '',
 }

@@ -41,6 +41,8 @@ export interface Settings {
   tvFolderKey: string
   jellyfinUrl: string
   jellyfinApiKey: string
+  jackettUrl: string
+  jackettApiKey: string
 }
 
 export interface JellyfinItem {

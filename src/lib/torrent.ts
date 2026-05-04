@@ -4,8 +4,9 @@ export interface TorrentResult {
   quality: string
   seeds: number
   size: string
-  source: 'yts' | 'torrentio'
+  source: 'yts' | 'torrentio' | 'jackett'
   language?: string
+  tracker?: string
 }
 
 const LANG_KEYWORDS: [RegExp, string][] = [
@@ -119,6 +120,62 @@ function parseTorrentioStream(stream: TorrentioStream): TorrentResult | null {
   }
 }
 
+function parseQuality(title: string): string {
+  if (/\b(2160p|4K|UHD)\b/i.test(title)) return '2160p'
+  if (/\b1080p\b/i.test(title)) return '1080p'
+  if (/\b720p\b/i.test(title)) return '720p'
+  if (/\b480p\b/i.test(title)) return '480p'
+  if (/\bHDTV\b/i.test(title)) return 'HDTV'
+  return ''
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`
+  if (bytes >= 1e6) return `${Math.round(bytes / 1e6)} MB`
+  return `${bytes} B`
+}
+
+interface JackettResult {
+  Title: string
+  MagnetUri?: string
+  Link?: string
+  Seeders: number
+  Size: number
+  Tracker?: string
+}
+
+async function searchJackett(
+  query: string,
+  categories: number[],
+  jackettUrl: string,
+  jackettApiKey: string,
+): Promise<TorrentResult[]> {
+  try {
+    const base = jackettUrl.replace(/\/$/, '')
+    const params = new URLSearchParams({ apikey: jackettApiKey, Query: query })
+    for (const cat of categories) params.append('Category[]', String(cat))
+    const res = await fetch(`${base}/api/v2.0/indexers/all/results?${params}`, {
+      signal: AbortSignal.timeout(12000),
+    })
+    if (!res.ok) return []
+    const data = await res.json() as { Results?: JackettResult[] }
+    return (data.Results ?? [])
+      .filter(r => !!(r.MagnetUri || r.Link))
+      .map(r => ({
+        title: r.Title,
+        magnet: (r.MagnetUri || r.Link)!,
+        quality: parseQuality(r.Title),
+        seeds: r.Seeders,
+        size: r.Size > 0 ? formatBytes(r.Size) : '',
+        source: 'jackett' as const,
+        language: parseLanguage(r.Title),
+        tracker: r.Tracker,
+      }))
+  } catch {
+    return []
+  }
+}
+
 async function searchTorrentio(path: string): Promise<TorrentResult[]> {
   try {
     const res = await fetch(`https://torrentio.strem.fun/stream/${path}.json`, { signal: AbortSignal.timeout(8000) })
@@ -133,21 +190,40 @@ async function searchTorrentio(path: string): Promise<TorrentResult[]> {
   }
 }
 
-export async function findMovieTorrents(imdbId: string): Promise<TorrentResult[]> {
-  const [yts, torrentio] = await Promise.allSettled([
+export async function findMovieTorrents(
+  imdbId: string,
+  jackettUrl?: string,
+  jackettApiKey?: string,
+  searchQuery?: string,
+): Promise<TorrentResult[]> {
+  const searches: Promise<TorrentResult[]>[] = [
     searchYts(imdbId),
     searchTorrentio(`movie/${imdbId}`),
-  ])
-  const all = [
-    ...(yts.status === 'fulfilled' ? yts.value : []),
-    ...(torrentio.status === 'fulfilled' ? torrentio.value : []),
   ]
-  return all.sort((a, b) => b.seeds - a.seeds).slice(0, 10)
+  if (jackettUrl && jackettApiKey) {
+    searches.push(searchJackett(searchQuery ?? imdbId, [2000], jackettUrl, jackettApiKey))
+  }
+  const settled = await Promise.allSettled(searches)
+  const all = settled.flatMap(r => r.status === 'fulfilled' ? r.value : [])
+  return all.sort((a, b) => b.seeds - a.seeds).slice(0, 100)
 }
 
 // Torrentio requires an episode number — querying episode 1 surfaces both per-episode and
 // season-pack torrents for the given season. YTS is movies-only and is not queried here.
-export async function findSeasonTorrents(imdbId: string, season: number): Promise<TorrentResult[]> {
-  const results = await searchTorrentio(`series/${imdbId}:${season}:1`)
-  return results.sort((a, b) => b.seeds - a.seeds).slice(0, 10)
+export async function findSeasonTorrents(
+  imdbId: string,
+  season: number,
+  jackettUrl?: string,
+  jackettApiKey?: string,
+  searchQuery?: string,
+): Promise<TorrentResult[]> {
+  const searches: Promise<TorrentResult[]>[] = [
+    searchTorrentio(`series/${imdbId}:${season}:1`),
+  ]
+  if (jackettUrl && jackettApiKey) {
+    searches.push(searchJackett(searchQuery ?? imdbId, [5000], jackettUrl, jackettApiKey))
+  }
+  const settled = await Promise.allSettled(searches)
+  const all = settled.flatMap(r => r.status === 'fulfilled' ? r.value : [])
+  return all.sort((a, b) => b.seeds - a.seeds).slice(0, 100)
 }

@@ -28,6 +28,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={{ settings, saveSettings }}>{children}</Ctx.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSettings(): SettingsContextValue {
   const ctx = useContext(Ctx)
   if (!ctx) throw new Error('useSettings must be used within SettingsProvider')

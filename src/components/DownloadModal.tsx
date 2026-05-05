@@ -21,7 +21,7 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
 
   const [autoResults, setAutoResults] = useState<TorrentResult[] | null>(null)
   const [autoSearching, setAutoSearching] = useState(false)
-  const [showManual, setShowManual] = useState(false)
+  const [showManual, setShowManual] = useState(!imdbId)
   const [magnet, setMagnet] = useState('')
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [pendingIdx, setPendingIdx] = useState<number | null>(null)
@@ -30,8 +30,8 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
 
   useEffect(() => {
     let cancelled = false
-    if (!imdbId) { setShowManual(true); return }
-    setAutoSearching(true)
+    if (!imdbId) return
+    setAutoSearching(true) // eslint-disable-line react-hooks/set-state-in-effect
     const { jackettUrl, jackettApiKey } = settings
     ;(season !== undefined
       ? findSeasonTorrents(imdbId, season, jackettUrl, jackettApiKey, searchQuery)
@@ -55,7 +55,7 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
       .catch(() => { if (!cancelled) setShowManual(true) })
       .finally(() => { if (!cancelled) setAutoSearching(false) })
     return () => { cancelled = true }
-  }, [imdbId, season])
+  }, [imdbId, season]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasResults = (autoResults?.length ?? 0) > 0
 

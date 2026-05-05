@@ -1,5 +1,7 @@
 # follow-links
 
+[![Docker image](https://img.shields.io/badge/docker-ghcr.io%2Frousseaddict%2Ffollow--links-blue?logo=docker)](https://github.com/RousseAddict/follow-links/pkgs/container/follow-links)
+
 A personal media tracker that connects TMDB, Jellyfin, and [local-link-downloader](https://github.com/your-repo/local-link-downloader). Track movies and TV shows, sync what's already in your Jellyfin library, and queue downloads.
 
 ## Features

@@ -130,7 +130,7 @@ export function Shows() {
         byId.set(tmdbId, { ...existing, posterPath: poster || existing.posterPath, seasons: mergedSeasons })
         updated++
       } else {
-        let seasons: SeasonItem[] = []
+        let seasons: SeasonItem[]
         try {
           seasons = (await getSeasons(tmdbId, settings.tmdbApiKey, settings.language)).map(s => ({
             seasonNumber: s.season_number,

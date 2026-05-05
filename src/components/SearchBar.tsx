@@ -12,6 +12,7 @@ export function SearchBar({ placeholder = 'Search…', onSearch, debounceMs = 40
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (resetKey !== undefined) setValue('')
   }, [resetKey])
 

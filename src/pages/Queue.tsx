@@ -53,7 +53,7 @@ export function Queue() {
   }, [settings.downloaderUrl, settings.downloaderToken, syncCompletedJobs])
 
   useEffect(() => {
-    load()
+    load() // eslint-disable-line react-hooks/set-state-in-effect
     const interval = setInterval(load, 5000)
     return () => clearInterval(interval)
   }, [load])

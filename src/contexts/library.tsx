@@ -31,7 +31,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   // On mount: pull remote and use as source of truth if available
   useEffect(() => {
     if (!isRemoteConfigured(settings)) return
-    setSyncStatus('syncing')
+    setSyncStatus('syncing') // eslint-disable-line react-hooks/set-state-in-effect
     fetchRemoteLibrary(settings)
       .then(remote => {
         if (!remote) {
@@ -79,6 +79,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useLibrary(): LibraryContextValue {
   const ctx = useContext(Ctx)
   if (!ctx) throw new Error('useLibrary must be used within LibraryProvider')

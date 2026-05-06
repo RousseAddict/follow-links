@@ -10,6 +10,7 @@ COPY . .
 # VITE_* vars are baked in at build time.
 # Pass them as --build-arg when building a pre-configured image,
 # or leave them empty and configure everything via the in-app Settings modal.
+ARG COMMIT_HASH
 ARG VITE_TMDB_API_KEY
 ARG VITE_LANGUAGE=en
 ARG VITE_DOWNLOADER_URL=http://localhost:3001

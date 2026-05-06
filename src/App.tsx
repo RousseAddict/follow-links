@@ -119,6 +119,9 @@ export default function App() {
             </Routes>
           </main>
           {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+          <span className="fixed bottom-2 right-3 text-[10px] font-mono text-gray-600 select-none opacity-50 hover:opacity-100 transition-opacity">
+            {__COMMIT_HASH__}
+          </span>
         </div>
       </BrowserRouter>
       </LibraryProvider>

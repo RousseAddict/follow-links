@@ -10,8 +10,18 @@ interface SettingsContextValue {
 
 const Ctx = createContext<SettingsContextValue | null>(null)
 
+function loadSettings(): Settings {
+  const stored = getStore<Partial<Settings>>(KEYS.settings, {})
+  return Object.fromEntries(
+    (Object.keys(SETTING_DEFAULTS) as (keyof Settings)[]).map(k => [
+      k,
+      stored[k] || SETTING_DEFAULTS[k],
+    ])
+  ) as unknown as Settings
+}
+
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<Settings>(() => getStore(KEYS.settings, SETTING_DEFAULTS))
+  const [settings, setSettings] = useState<Settings>(loadSettings)
 
   const saveSettings = useCallback((next: Settings) => {
     setSettings(next)

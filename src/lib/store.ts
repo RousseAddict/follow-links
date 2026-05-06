@@ -24,14 +24,14 @@ export const KEYS = {
 export const SCHEMA_VERSION = 1
 
 export const SETTING_DEFAULTS: Settings = {
-  tmdbApiKey: '',
-  language: 'en',
-  downloaderUrl: 'http://localhost:3001',
-  downloaderToken: '',
-  movieFolderKey: 'movies',
-  tvFolderKey: 'tv',
-  jellyfinUrl: '',
-  jellyfinApiKey: '',
-  jackettUrl: '',
-  jackettApiKey: '',
+  tmdbApiKey: import.meta.env.VITE_TMDB_API_KEY ?? '',
+  language: import.meta.env.VITE_LANGUAGE ?? 'en',
+  downloaderUrl: import.meta.env.VITE_DOWNLOADER_URL ?? 'http://localhost:3001',
+  downloaderToken: import.meta.env.VITE_DOWNLOADER_TOKEN ?? '',
+  movieFolderKey: import.meta.env.VITE_MOVIE_FOLDER_KEY ?? 'movies',
+  tvFolderKey: import.meta.env.VITE_TV_FOLDER_KEY ?? 'tv',
+  jellyfinUrl: import.meta.env.VITE_JELLYFIN_URL ?? '',
+  jellyfinApiKey: import.meta.env.VITE_JELLYFIN_API_KEY ?? '',
+  jackettUrl: import.meta.env.VITE_JACKETT_URL ?? '',
+  jackettApiKey: import.meta.env.VITE_JACKETT_API_KEY ?? '',
 }

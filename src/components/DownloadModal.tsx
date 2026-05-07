@@ -81,10 +81,6 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
     await sendMagnetLink(trimmed)
   }
 
-  const search1337x = () => {
-    window.open(`https://www.1337x.to/search/${encodeURIComponent(searchQuery)}/1/`, '_blank')
-  }
-
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div

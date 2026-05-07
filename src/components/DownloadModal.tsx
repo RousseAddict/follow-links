@@ -145,6 +145,7 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
                     const isExpanded = expandedIdx === globalIdx
                     const isPending = pendingIdx === globalIdx
                     const hasLongTitle = r.title !== r.quality && r.title.length > 0
+                    const sourceLabel = r.source === 'jackett' ? (r.tracker ?? 'jackett') : r.source
                     return (
                       <div key={globalIdx} className={`flex flex-col rounded-lg overflow-hidden ring-1 ${isPending ? 'ring-indigo-500' : 'ring-transparent'}`}>
                         <div className="flex items-stretch bg-gray-800 hover:bg-gray-750">
@@ -154,7 +155,7 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
                             className="flex-1 flex items-center justify-between px-3 py-2.5 text-left transition-colors disabled:opacity-50 min-w-0"
                           >
                             <div className="flex flex-col gap-0.5 min-w-0">
-                              <span className="text-gray-200 text-xs truncate">{r.quality || r.title}</span>
+                              <span className="text-gray-200 text-xs truncate">{sourceLabel}</span>
                               {hasLongTitle && (
                                 <span className="text-gray-500 text-[10px] truncate">{r.title}</span>
                               )}
@@ -172,15 +173,6 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
                               {r.language && (
                                 <span className="text-xs px-1.5 py-0.5 rounded bg-blue-900 text-blue-300 font-medium">
                                   {r.language}
-                                </span>
-                              )}
-                              {r.source === 'jackett' ? (
-                                <span className="text-xs px-1.5 py-0.5 rounded bg-teal-900 text-teal-300" title="via Jackett">
-                                  {r.tracker ?? 'jackett'}
-                                </span>
-                              ) : (
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${r.source === 'yts' ? 'bg-yellow-900 text-yellow-300' : 'bg-indigo-900 text-indigo-300'}`}>
-                                  {r.source}
                                 </span>
                               )}
                             </div>
@@ -272,16 +264,6 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
             {showManual && (
               <div className="flex flex-col gap-3 pt-1">
                 {!hasResults && <p className="text-gray-500 text-xs">No torrents found automatically.</p>}
-                <button
-                  onClick={search1337x}
-                  className="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm rounded-lg py-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"/>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                  </svg>
-                  Search on 1337x
-                </button>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-gray-400 text-xs">Magnet link</label>
                   <textarea

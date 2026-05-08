@@ -32,5 +32,18 @@ export async function fetchJobs(downloaderUrl: string, token: string): Promise<D
   if (!res.ok) throw new Error(`Downloader error ${res.status}`)
   const data = await res.json()
   if (!Array.isArray(data)) throw new Error('Unexpected response from downloader: expected array')
-  return data as DownloaderJob[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data as any[]).map(j => ({
+    id: j.id,
+    status: j.status,
+    filename: j.filename,
+    progress: j.progress,
+    type: j.type,
+    createdAt: j.created_at,
+    totalBytes: j.total_bytes,
+    downloadedBytes: j.downloaded_bytes,
+    downloadSpeed: j.download_speed,
+    peers: j.peers,
+    ytdlpPercent: j.ytdlp_percent,
+  }))
 }

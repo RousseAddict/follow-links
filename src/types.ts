@@ -90,4 +90,9 @@ export interface DownloaderJob {
   progress?: number
   type?: string
   createdAt?: string
+  totalBytes?: number
+  downloadedBytes?: number
+  downloadSpeed?: number
+  peers?: number
+  ytdlpPercent?: number
 }

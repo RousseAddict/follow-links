@@ -57,7 +57,7 @@ export function Queue() {
 
   useEffect(() => {
     load() // eslint-disable-line react-hooks/set-state-in-effect
-    const interval = setInterval(load, 5000)
+    const interval = setInterval(load, 30000)
     return () => clearInterval(interval)
   }, [load])
 
@@ -118,6 +118,17 @@ export function Queue() {
   )
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`
+  if (bytes >= 1e6) return `${Math.round(bytes / 1e6)} MB`
+  if (bytes >= 1e3) return `${Math.round(bytes / 1e3)} KB`
+  return `${bytes} B`
+}
+
+function formatSpeed(bytesPerSec: number): string {
+  return `${formatBytes(bytesPerSec)}/s`
+}
+
 function ProgressBar({ pct }: { pct: number }) {
   return (
     <div className="flex items-center gap-2 shrink-0">
@@ -130,16 +141,37 @@ function ProgressBar({ pct }: { pct: number }) {
 }
 
 function JobRow({ job }: { job: DownloaderJob }) {
+  const pct = job.ytdlpPercent ?? (job.progress !== undefined ? Math.min(100, Math.max(0, Math.round(job.progress))) : undefined)
+  const isActive = job.status === 'downloading'
+
   return (
-    <div className="bg-gray-900 rounded-lg px-4 py-3 flex items-center gap-3">
-      <span className={`text-xs font-semibold w-20 shrink-0 ${STATUS_CLASSES[job.status] ?? 'text-gray-400'}`}>
-        {job.status}
-      </span>
-      <span className="text-gray-300 text-sm truncate flex-1">
-        {job.filename ?? job.id}
-      </span>
-      {job.status === 'downloading' && job.progress !== undefined && (
-        <ProgressBar pct={Math.min(100, Math.max(0, Math.round(job.progress)))} />
+    <div className="bg-gray-900 rounded-lg px-4 py-3 flex flex-col gap-1.5">
+      <div className="flex items-center gap-3">
+        <span className={`text-xs font-semibold w-20 shrink-0 ${STATUS_CLASSES[job.status] ?? 'text-gray-400'}`}>
+          {job.status}
+        </span>
+        <span className="text-gray-300 text-sm truncate flex-1">
+          {job.filename ?? job.id}
+        </span>
+        {isActive && pct !== undefined && (
+          <ProgressBar pct={Math.round(pct)} />
+        )}
+      </div>
+      {isActive && (job.downloadedBytes !== undefined || job.downloadSpeed !== undefined) && (
+        <div className="flex items-center gap-3 pl-[92px] text-xs text-gray-500">
+          {job.downloadedBytes !== undefined && (
+            <span>
+              {formatBytes(job.downloadedBytes)}
+              {job.totalBytes ? ` / ${formatBytes(job.totalBytes)}` : ''}
+            </span>
+          )}
+          {job.downloadSpeed !== undefined && job.downloadSpeed > 0 && (
+            <span className="text-blue-400/70">{formatSpeed(job.downloadSpeed)}</span>
+          )}
+          {job.peers !== undefined && job.peers > 0 && (
+            <span>{job.peers} peers</span>
+          )}
+        </div>
       )}
     </div>
   )

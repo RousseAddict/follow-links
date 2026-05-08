@@ -16,6 +16,7 @@ export function Queue() {
   const { settings } = useSettings()
   const { movies, shows, saveMovies, saveShows } = useLibrary()
   const [jobs, setJobs] = useState<DownloaderJob[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
@@ -40,7 +41,7 @@ export function Queue() {
   }, [movies, shows, saveMovies, saveShows])
 
   const load = useCallback(async () => {
-    if (!settings.downloaderUrl) { setError('Downloader URL not configured — check Settings'); return }
+    if (!settings.downloaderUrl) { setError('Downloader URL not configured — check Settings'); setLoading(false); return }
     try {
       const data = await fetchJobs(settings.downloaderUrl, settings.downloaderToken)
       setJobs(data)
@@ -49,6 +50,8 @@ export function Queue() {
       syncCompletedJobs(data)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to reach downloader')
+    } finally {
+      setLoading(false)
     }
   }, [settings.downloaderUrl, settings.downloaderToken, syncCompletedJobs])
 
@@ -80,7 +83,17 @@ export function Queue() {
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
 
-      {!error && jobs.length === 0 && (
+      {loading && (
+        <div className="flex items-center gap-2 text-gray-500 text-sm">
+          <svg className="animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="12" cy="12" r="10" strokeOpacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10"/>
+          </svg>
+          Loading…
+        </div>
+      )}
+
+      {!loading && !error && jobs.length === 0 && (
         <p className="text-gray-600 text-sm">No jobs found.</p>
       )}
 

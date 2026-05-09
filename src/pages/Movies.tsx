@@ -10,11 +10,6 @@ import type { MovieItem, TmdbMovie, MediaStatus } from '../types'
 
 type Filter = 'all' | MediaStatus
 
-const STATUS_ORDER: Record<MediaStatus, number> = { wanted: 0, downloading: 1, downloaded: 2 }
-
-function upgradeStatus(current: MediaStatus, next: MediaStatus): MediaStatus {
-  return STATUS_ORDER[next] > STATUS_ORDER[current] ? next : current
-}
 
 export function Movies() {
   const { settings } = useSettings()

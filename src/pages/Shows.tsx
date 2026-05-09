@@ -4,10 +4,9 @@ import { MediaCard } from '../components/MediaCard'
 import { SeasonPanel } from '../components/SeasonPanel'
 import { DownloadModal } from '../components/DownloadModal'
 import { searchShows, getSeasons, getShowImdbId, posterUrl } from '../lib/tmdb'
-import { fetchJellyfinShows, fetchJellyfinSeasons, jellyfinPosterUrl, parseTmdbId } from '../lib/jellyfin'
 import { useSettings } from '../contexts/settings'
 import { useLibrary } from '../contexts/library'
-import { useSyncFromJellyfin, patchImdbId } from '../hooks'
+import { patchImdbId } from '../hooks'
 import type { ShowItem, SeasonItem, TmdbShow } from '../types'
 
 function updateSeason(
@@ -34,7 +33,6 @@ export function Shows() {
   const [addingId, setAddingId] = useState<number | null>(null)
   const [searchResetKey, setSearchResetKey] = useState(0)
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null)
-  const { syncing, syncResult, sync } = useSyncFromJellyfin()
 
   const handleSearch = useCallback(async (q: string) => {
     setQuery(q)
@@ -96,94 +94,11 @@ export function Shows() {
     setDownloadTarget(null)
   }
 
-  const syncFromJellyfin = () => sync(async () => {
-    const jellyfinShows = await fetchJellyfinShows(settings.jellyfinUrl, settings.jellyfinApiKey, settings.language)
-    const byId = new Map(library.map(s => [s.id, s]))
-    let added = 0, updated = 0
-
-    for (const js of jellyfinShows) {
-      const tmdbId = parseTmdbId(js)
-      if (tmdbId === null) continue
-
-      let downloadedNums = new Set<number>()
-      try {
-        const jellyfinSeasons = await fetchJellyfinSeasons(js.Id, settings.jellyfinUrl, settings.jellyfinApiKey)
-        downloadedNums = new Set(jellyfinSeasons.map(s => s.IndexNumber))
-      } catch { /* skip season status for this show, still import it */ }
-
-      const poster = js.ImageTags?.Primary
-        ? jellyfinPosterUrl(settings.jellyfinUrl, js.Id, settings.jellyfinApiKey)
-        : ''
-
-      if (byId.has(tmdbId)) {
-        const existing = byId.get(tmdbId)!
-        const existingNums = new Set(existing.seasons.map(s => s.seasonNumber))
-        const mergedSeasons = [
-          ...existing.seasons.map(s =>
-            downloadedNums.has(s.seasonNumber) ? { ...s, status: 'downloaded' as const } : s,
-          ),
-          ...Array.from(downloadedNums)
-            .filter(n => !existingNums.has(n))
-            .map(n => ({ seasonNumber: n, episodeCount: 0, status: 'downloaded' as const, monitored: true })),
-        ].sort((a, b) => a.seasonNumber - b.seasonNumber)
-
-        byId.set(tmdbId, { ...existing, posterPath: poster || existing.posterPath, seasons: mergedSeasons })
-        updated++
-      } else {
-        let seasons: SeasonItem[]
-        try {
-          seasons = (await getSeasons(tmdbId, settings.tmdbApiKey, settings.language)).map(s => ({
-            seasonNumber: s.season_number,
-            episodeCount: s.episode_count,
-            status: downloadedNums.has(s.season_number) ? 'downloaded' as const : 'wanted' as const,
-            monitored: true,
-          }))
-        } catch {
-          seasons = Array.from(downloadedNums).sort((a, b) => a - b).map(n => ({
-            seasonNumber: n, episodeCount: 0, status: 'downloaded' as const, monitored: true,
-          }))
-        }
-        byId.set(tmdbId, {
-          id: tmdbId,
-          title: js.Name,
-          overview: js.Overview ?? '',
-          posterPath: poster,
-          monitored: true,
-          addedAt: new Date().toISOString(),
-          seasons,
-        })
-        added++
-      }
-    }
-
-    save(Array.from(byId.values()))
-    return `Synced ${added + updated} shows — ${added} new, ${updated} updated`
-  })
-
   const libraryIds = new Set(library.map(s => s.id))
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-2">
-        <div className="flex-1">
-          <SearchBar placeholder="Search TV shows…" onSearch={handleSearch} resetKey={searchResetKey} />
-        </div>
-        {settings.jellyfinUrl && (
-          <button
-            onClick={syncFromJellyfin}
-            disabled={syncing}
-            className="text-xs px-3 py-1.5 rounded-lg bg-purple-800 hover:bg-purple-700 disabled:bg-gray-800 text-purple-200 disabled:text-gray-500 whitespace-nowrap"
-          >
-            {syncing ? 'Syncing…' : '⟳ Jellyfin'}
-          </button>
-        )}
-      </div>
-
-      {syncResult && (
-        <p className={`text-sm ${syncResult.ok ? 'text-green-400' : 'text-red-400'}`}>
-          {syncResult.message}
-        </p>
-      )}
+      <SearchBar placeholder="Search TV shows…" onSearch={handleSearch} resetKey={searchResetKey} />
 
       {query && (
         <section>

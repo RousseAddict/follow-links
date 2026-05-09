@@ -3,10 +3,9 @@ import { SearchBar } from '../components/SearchBar'
 import { MediaCard } from '../components/MediaCard'
 import { DownloadModal } from '../components/DownloadModal'
 import { searchMovies, getMovieImdbId } from '../lib/tmdb'
-import { fetchJellyfinMovies, jellyfinPosterUrl, parseTmdbId } from '../lib/jellyfin'
 import { useSettings } from '../contexts/settings'
 import { useLibrary } from '../contexts/library'
-import { useSyncFromJellyfin, patchImdbId } from '../hooks'
+import { patchImdbId } from '../hooks'
 import type { MovieItem, TmdbMovie, MediaStatus } from '../types'
 
 type Filter = 'all' | MediaStatus
@@ -28,7 +27,6 @@ export function Movies() {
   const [searchResetKey, setSearchResetKey] = useState(0)
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null)
   const [searchError, setSearchError] = useState('')
-  const { syncing, syncResult, sync } = useSyncFromJellyfin()
 
   const handleSearch = useCallback(async (q: string) => {
     setQuery(q)
@@ -79,46 +77,6 @@ export function Movies() {
     setDownloading(null)
   }
 
-  const syncFromJellyfin = () => sync(async () => {
-    const jellyfinMovies = await fetchJellyfinMovies(settings.jellyfinUrl, settings.jellyfinApiKey, settings.language)
-    const byId = new Map(library.map(m => [m.id, m]))
-    let added = 0, updated = 0
-
-    for (const jm of jellyfinMovies) {
-      const tmdbId = parseTmdbId(jm)
-      if (tmdbId === null) continue
-
-      const poster = jm.ImageTags?.Primary
-        ? jellyfinPosterUrl(settings.jellyfinUrl, jm.Id, settings.jellyfinApiKey)
-        : ''
-
-      if (byId.has(tmdbId)) {
-        const existing = byId.get(tmdbId)!
-        byId.set(tmdbId, {
-          ...existing,
-          status: upgradeStatus(existing.status, 'downloaded'),
-          posterPath: poster || existing.posterPath,
-        })
-        updated++
-      } else {
-        byId.set(tmdbId, {
-          id: tmdbId,
-          title: jm.Name,
-          year: jm.ProductionYear ? String(jm.ProductionYear) : '',
-          overview: jm.Overview ?? '',
-          posterPath: poster,
-          status: 'downloaded',
-          monitored: true,
-          addedAt: new Date().toISOString(),
-        })
-        added++
-      }
-    }
-
-    save(Array.from(byId.values()))
-    return `Synced ${added + updated} movies — ${added} new, ${updated} updated`
-  })
-
   const libraryIds = new Set(library.map(m => m.id))
   const filteredLibrary = filter === 'all' ? library : library.filter(m => m.status === filter)
 
@@ -138,26 +96,8 @@ export function Movies() {
               {f}
             </button>
           ))}
-          {settings.jellyfinUrl && (
-            <button
-              onClick={syncFromJellyfin}
-              disabled={syncing}
-              className="text-xs px-3 py-1.5 rounded-lg bg-purple-800 hover:bg-purple-700 disabled:bg-gray-800 text-purple-200 disabled:text-gray-500"
-            >
-              {syncing
-              ? <><svg className="animate-spin inline-block mr-1" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>Syncing…</>
-              : <><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>Jellyfin</>
-            }
-            </button>
-          )}
         </div>
       </div>
-
-      {syncResult && (
-        <p className={`text-sm ${syncResult.ok ? 'text-green-400' : 'text-red-400'}`}>
-          {syncResult.message}
-        </p>
-      )}
 
       {query && (
         <section>

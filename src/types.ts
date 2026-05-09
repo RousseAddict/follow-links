@@ -81,8 +81,6 @@ export interface TmdbSeason {
   name: string
 }
 
-export type SyncResult = { ok: boolean; message: string } | null
-
 export interface DownloaderJob {
   id: string
   status: 'queued' | 'downloading' | 'done' | 'error' | 'cancelled'

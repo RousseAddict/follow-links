@@ -25,14 +25,16 @@ export function Queue() {
     if (doneIds.size === 0) return
 
     const nextMovies = movies.map(m =>
-      m.downloadJobId && doneIds.has(m.downloadJobId) ? { ...m, status: 'downloaded' as const } : m,
+      m.downloadJobId && doneIds.has(m.downloadJobId) && m.status !== 'downloaded'
+        ? { ...m, status: 'downloaded' as const }
+        : m,
     )
     if (nextMovies.some((m, i) => m !== movies[i])) saveMovies(nextMovies)
 
     const nextShows = shows.map(s => ({
       ...s,
       seasons: (s.seasons ?? []).map(season =>
-        season.downloadJobId && doneIds.has(season.downloadJobId)
+        season.downloadJobId && doneIds.has(season.downloadJobId) && season.status !== 'downloaded'
           ? { ...season, status: 'downloaded' as const }
           : season,
       ),

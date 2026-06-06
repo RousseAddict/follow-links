@@ -6,9 +6,11 @@ import { searchMovies, getMovieImdbId } from '../lib/tmdb'
 import { useSettings } from '../contexts/settings'
 import { useLibrary } from '../contexts/library'
 import { patchImdbId } from '../hooks'
+import { getStore, setStore, KEYS } from '../lib/store'
 import type { MovieItem, TmdbMovie, MediaStatus } from '../types'
 
 type Filter = 'all' | MediaStatus
+type Sort = 'date-desc' | 'date-asc' | 'title-asc' | 'title-desc'
 
 
 export function Movies() {
@@ -17,6 +19,7 @@ export function Movies() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<TmdbMovie[]>([])
   const [filter, setFilter] = useState<Filter>('all')
+  const [sort, setSort] = useState<Sort>(() => getStore<Sort>(KEYS.moviesSort, 'date-desc'))
   const [downloading, setDownloading] = useState<MovieItem | null>(null)
   const [searching, setSearching] = useState(false)
   const [searchResetKey, setSearchResetKey] = useState(0)
@@ -73,7 +76,14 @@ export function Movies() {
   }
 
   const libraryIds = new Set(library.map(m => m.id))
-  const filteredLibrary = filter === 'all' ? library : library.filter(m => m.status === filter)
+  const filteredLibrary = (filter === 'all' ? library : library.filter(m => m.status === filter))
+    .slice()
+    .sort((a, b) => {
+      if (sort === 'date-desc') return a.addedAt < b.addedAt ? 1 : -1
+      if (sort === 'date-asc') return a.addedAt > b.addedAt ? 1 : -1
+      if (sort === 'title-asc') return a.title.localeCompare(b.title)
+      return b.title.localeCompare(a.title)
+    })
 
   return (
     <div className="flex flex-col gap-6">
@@ -92,6 +102,16 @@ export function Movies() {
             </button>
           ))}
         </div>
+        <select
+          value={sort}
+          onChange={e => { const v = e.target.value as Sort; setSort(v); setStore(KEYS.moviesSort, v) }}
+          className="text-xs px-2 py-1.5 rounded-lg bg-gray-800 text-gray-400 border-none outline-none cursor-pointer hover:text-gray-200"
+        >
+          <option value="date-desc">Date added ↓</option>
+          <option value="date-asc">Date added ↑</option>
+          <option value="title-asc">Title A→Z</option>
+          <option value="title-desc">Title Z→A</option>
+        </select>
       </div>
 
       {query && (

@@ -7,7 +7,10 @@ import { searchShows, getSeasons, getShowImdbId, posterUrl } from '../lib/tmdb'
 import { useSettings } from '../contexts/settings'
 import { useLibrary } from '../contexts/library'
 import { patchImdbId } from '../hooks'
+import { getStore, setStore, KEYS } from '../lib/store'
 import type { ShowItem, SeasonItem, TmdbShow } from '../types'
+
+type Sort = 'date-desc' | 'date-asc' | 'title-asc' | 'title-desc'
 
 function updateSeason(
   library: ShowItem[],
@@ -33,6 +36,7 @@ export function Shows() {
   const [addingId, setAddingId] = useState<number | null>(null)
   const [searchResetKey, setSearchResetKey] = useState(0)
   const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null)
+  const [sort, setSort] = useState<Sort>(() => getStore<Sort>(KEYS.showsSort, 'date-desc'))
 
   const handleSearch = useCallback(async (q: string) => {
     setQuery(q)
@@ -95,10 +99,30 @@ export function Shows() {
   }
 
   const libraryIds = new Set(library.map(s => s.id))
+  const sortedLibrary = library.slice().sort((a, b) => {
+    if (sort === 'date-desc') return a.addedAt < b.addedAt ? 1 : -1
+    if (sort === 'date-asc') return a.addedAt > b.addedAt ? 1 : -1
+    if (sort === 'title-asc') return a.title.localeCompare(b.title)
+    return b.title.localeCompare(a.title)
+  })
 
   return (
     <div className="flex flex-col gap-6">
-      <SearchBar placeholder="Search TV shows…" onSearch={handleSearch} resetKey={searchResetKey} />
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <SearchBar placeholder="Search TV shows…" onSearch={handleSearch} resetKey={searchResetKey} />
+        </div>
+        <select
+          value={sort}
+          onChange={e => { const v = e.target.value as Sort; setSort(v); setStore(KEYS.showsSort, v) }}
+          className="text-xs px-2 py-1.5 rounded-lg bg-gray-800 text-gray-400 border-none outline-none cursor-pointer hover:text-gray-200"
+        >
+          <option value="date-desc">Date added ↓</option>
+          <option value="date-asc">Date added ↑</option>
+          <option value="title-asc">Title A→Z</option>
+          <option value="title-desc">Title Z→A</option>
+        </select>
+      </div>
 
       {query && (
         <section>
@@ -132,7 +156,7 @@ export function Shows() {
           <p className="text-gray-600 text-sm">No shows yet. Search and add some above.</p>
         ) : (
           <div className="flex flex-col gap-4">
-            {library.map(show => {
+            {sortedLibrary.map(show => {
               const allDownloaded = show.seasons.length > 0 && show.seasons.every(s => s.status === 'downloaded')
               return (
                 <div key={show.id} className={`bg-gray-900 rounded-xl overflow-hidden transition-shadow ${show.id === recentlyAddedId ? 'ring-2 ring-indigo-400 ring-offset-2 ring-offset-gray-950' : ''}`}>

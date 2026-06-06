@@ -19,6 +19,8 @@ export const KEYS = {
   shows: 'fl:shows',
   settings: 'fl:settings',
   schemaVersion: 'fl:schemaVersion',
+  moviesSort: 'fl:moviesSort',
+  showsSort: 'fl:showsSort',
 } as const
 
 export const SCHEMA_VERSION = 1

@@ -108,20 +108,33 @@ export function Shows() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-2">
-        <div className="flex-1">
-          <SearchBar placeholder="Search TV shows…" onSearch={handleSearch} resetKey={searchResetKey} />
+      <div className="flex flex-col gap-2">
+        <SearchBar placeholder="Search TV shows…" onSearch={handleSearch} resetKey={searchResetKey} />
+        {/* Desktop: pill buttons */}
+        <div className="hidden md:flex justify-end gap-1">
+          {([['date-desc', 'Date ↓'], ['date-asc', 'Date ↑'], ['title-asc', 'A→Z'], ['title-desc', 'Z→A']] as const).map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => { setSort(value); setStore(KEYS.showsSort, value) }}
+              className={`text-xs px-3 py-1.5 rounded-lg ${sort === value ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200'}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-        <select
-          value={sort}
-          onChange={e => { const v = e.target.value as Sort; setSort(v); setStore(KEYS.showsSort, v) }}
-          className="text-xs px-2 py-1.5 rounded-lg bg-gray-800 text-gray-400 border-none outline-none cursor-pointer hover:text-gray-200"
-        >
-          <option value="date-desc">Date added ↓</option>
-          <option value="date-asc">Date added ↑</option>
-          <option value="title-asc">Title A→Z</option>
-          <option value="title-desc">Title Z→A</option>
-        </select>
+        {/* Mobile: dropdown */}
+        <div className="flex md:hidden">
+          <select
+            value={sort}
+            onChange={e => { const v = e.target.value as Sort; setSort(v); setStore(KEYS.showsSort, v) }}
+            className="flex-1 text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 border-none outline-none cursor-pointer"
+          >
+            <option value="date-desc">Date ↓</option>
+            <option value="date-asc">Date ↑</option>
+            <option value="title-asc">A→Z</option>
+            <option value="title-desc">Z→A</option>
+          </select>
+        </div>
       </div>
 
       {query && (

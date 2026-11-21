@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { sendMagnet } from '../lib/downloader'
 import { findMovieTorrents, findSeasonTorrents, type TorrentResult } from '../lib/torrent'
 import { useSettings } from '../contexts/settings'
+import { Sheet, SheetHeader } from './Sheet'
+import { Icon, Spinner } from './Icon'
+import { Button } from './ui'
 
 interface Props {
   title: string
@@ -12,6 +15,21 @@ interface Props {
   onSuccess: (jobId: string) => void
   onClose: () => void
 }
+
+const PAGE_SIZE = 10
+
+const RESOLUTION = /\b(2160p|1440p|1080p|720p|576p|480p|4k|uhd)\b/i
+
+/** Some sources report their own name as the quality; read the resolution from the release name instead. */
+function qualityLabel(r: TorrentResult): string {
+  const looksLikeSource = !r.quality || r.quality.toLowerCase() === r.source || /torrentio|jackett/i.test(r.quality)
+  if (!looksLikeSource) return r.quality
+  const match = RESOLUTION.exec(r.title) ?? RESOLUTION.exec(r.quality)
+  return match ? match[1].replace(/^(4k|uhd)$/i, '2160p') : 'Unknown quality'
+}
+
+const fieldClass =
+  'w-full rounded-btn border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-ink outline-none transition-[border-color,box-shadow] placeholder:text-faint focus:border-line-strong focus:shadow-[0_0_0_3px_rgb(255_69_58/0.25)]'
 
 export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, imdbId, season, onSuccess, onClose }: Props) {
   const { settings } = useSettings()
@@ -26,7 +44,6 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
   const [pendingIdx, setPendingIdx] = useState<number | null>(null)
   const [page, setPage] = useState(0)
-  const PAGE_SIZE = 10
 
   useEffect(() => {
     let cancelled = false
@@ -81,209 +98,168 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
     await sendMagnetLink(trimmed)
   }
 
+  const sources = settings.jackettUrl && settings.jackettApiKey ? 'YTS, Torrentio and Jackett' : 'YTS and Torrentio'
+  const breakdown = autoResults
+    ? Object.entries(autoResults.reduce<Record<string, number>>((acc, r) => {
+        acc[r.source] = (acc[r.source] ?? 0) + 1
+        return acc
+      }, {})).map(([src, n]) => `${src} ${n}`).join(' · ')
+    : ''
+  const totalPages = autoResults ? Math.ceil(autoResults.length / PAGE_SIZE) : 0
+  const pageResults = autoResults?.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE) ?? []
+
+  const goToPage = (p: number) => {
+    setPage(p)
+    setExpandedIdx(null)
+    setPendingIdx(null)
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div
-        className="bg-gray-900 rounded-xl w-full max-w-md p-5 flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-gray-100 font-medium">{title}</h3>
-            <p className="text-gray-500 text-xs mt-0.5">Send torrent to local-link-downloader</p>
-          </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 ml-4">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-
+    <Sheet label={`Find a release for ${title}`} onClose={onClose} header={<SheetHeader title={title} subtitle="Pick a release to send to local-link-downloader" />}>
+      <div className="flex flex-col gap-5 px-5 py-5">
         <div className="flex flex-col gap-1.5">
-          <label className="text-gray-400 text-xs">Folder key</label>
-          <input
-            value={folder}
-            onChange={e => setFolder(e.target.value)}
-            className="bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+          <label htmlFor="dl-folder" className="text-xs font-semibold text-muted">Destination folder key</label>
+          <input id="dl-folder" value={folder} onChange={e => setFolder(e.target.value)} className={fieldClass} autoComplete="off" spellCheck={false} />
         </div>
 
-        {/* Torrent list */}
-        {(autoSearching || hasResults) && (
-          <div className="flex flex-col gap-2">
-            <span className="text-gray-400 text-xs font-semibold uppercase tracking-wide">
-              {autoSearching ? 'Searching…' : (() => {
-                const counts = autoResults!.reduce<Record<string, number>>((acc, r) => {
-                  acc[r.source] = (acc[r.source] ?? 0) + 1
-                  return acc
-                }, {})
-                const breakdown = Object.entries(counts).map(([src, n]) => `${src}: ${n}`).join(', ')
-                return `${autoResults!.length} torrents found${breakdown ? ` (${breakdown})` : ''}`
-              })()}
-            </span>
-            {autoSearching && (
-              <div className="flex items-center gap-2 py-3 text-gray-500 text-sm">
-                <svg className="animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <circle cx="12" cy="12" r="10" strokeOpacity="0.25"/>
-                  <path d="M12 2a10 10 0 0 1 10 10"/>
-                </svg>
-                Searching YTS & Torrentio{settings.jackettUrl && settings.jackettApiKey ? ' & Jackett' : ''}…
-              </div>
-            )}
-            {autoResults && (() => {
-              const pageResults = autoResults.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
-              const totalPages = Math.ceil(autoResults.length / PAGE_SIZE)
-              return (
-                <>
-                  {pageResults.map((r, i) => {
-                    const globalIdx = page * PAGE_SIZE + i
-                    const isExpanded = expandedIdx === globalIdx
-                    const isPending = pendingIdx === globalIdx
-                    const hasLongTitle = r.title !== r.quality && r.title.length > 0
-                    const sourceLabel = r.source === 'jackett' ? (r.tracker ?? 'jackett') : r.source
-                    return (
-                      <div key={globalIdx} className={`flex flex-col rounded-lg overflow-hidden ring-1 ${isPending ? 'ring-indigo-500' : 'ring-transparent'}`}>
-                        <div className="flex items-stretch bg-gray-800 hover:bg-gray-750">
-                          <button
-                            disabled={loading}
-                            onClick={() => setPendingIdx(isPending ? null : globalIdx)}
-                            className="flex-1 flex items-center justify-between px-3 py-2.5 text-left transition-colors disabled:opacity-50 min-w-0"
-                          >
-                            <div className="flex flex-col gap-0.5 min-w-0">
-                              <span className="text-gray-200 text-xs truncate">{sourceLabel}</span>
-                              {hasLongTitle && (
-                                <span className="text-gray-500 text-[10px] truncate">{r.title}</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5 shrink-0 ml-3">
-                              {r.size && <span className="text-gray-500 text-xs">{r.size}</span>}
-                              {r.seeds > 0 && (
-                                <span className="flex items-center gap-0.5 text-green-500 text-xs">
-                                  {r.seeds}
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="18 15 12 9 6 15"/>
-                                  </svg>
-                                </span>
-                              )}
-                              {r.language && (
-                                <span className="text-xs px-1.5 py-0.5 rounded bg-blue-900 text-blue-300 font-medium">
-                                  {r.language}
-                                </span>
-                              )}
-                            </div>
-                          </button>
-                          {hasLongTitle && (
-                            <button
-                              onClick={() => setExpandedIdx(isExpanded ? null : globalIdx)}
-                              className="px-2.5 text-gray-600 hover:text-gray-300 border-l border-gray-700 transition-colors shrink-0"
-                              title="Show full name"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                {isExpanded
-                                  ? <polyline points="18 15 12 9 6 15"/>
-                                  : <polyline points="6 9 12 15 18 9"/>}
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                        {isExpanded && (
-                          <div className="px-3 py-2 bg-gray-800/60 border-t border-gray-700">
-                            <p className="text-gray-300 text-xs leading-relaxed break-words">{r.title}</p>
-                          </div>
-                        )}
-                        {isPending && (
-                          <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-indigo-950 border-t border-indigo-800">
-                            <span className="text-indigo-300 text-xs truncate">Send to downloader?</span>
-                            <div className="flex gap-2 shrink-0">
-                              <button
-                                onClick={() => setPendingIdx(null)}
-                                className="text-xs px-3 py-1 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                disabled={loading}
-                                onClick={() => sendMagnetLink(r.magnet)}
-                                className="text-xs px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium"
-                              >
-                                {loading ? 'Sending…' : 'Confirm'}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between pt-1">
-                      <button
-                        onClick={() => { setPage(p => p - 1); setExpandedIdx(null); setPendingIdx(null) }}
-                        disabled={page === 0}
-                        className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
-                      >
-                        ← Prev
-                      </button>
-                      <span className="text-gray-500 text-xs">
-                        {page + 1} / {totalPages}
-                      </span>
-                      <button
-                        onClick={() => { setPage(p => p + 1); setExpandedIdx(null); setPendingIdx(null) }}
-                        disabled={page >= totalPages - 1}
-                        className="text-xs px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
-                      >
-                        Next →
-                      </button>
-                    </div>
-                  )}
-                </>
-              )
-            })()}
+        {autoSearching && (
+          <div className="flex flex-col gap-2" aria-busy="true">
+            <p className="flex items-center gap-2 text-sm text-muted">
+              <Spinner size={15} /> Searching {sources}…
+            </p>
+            {Array.from({ length: 4 }, (_, i) => <span key={i} className="skeleton block h-[60px] rounded-card" />)}
           </div>
         )}
 
-        {/* Manual section */}
-        {!autoSearching && (
+        {hasResults && (
           <div className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <h3 className="text-[15px] font-semibold">{autoResults!.length} releases</h3>
+              <span className="truncate text-xs text-faint">{breakdown}</span>
+            </div>
+            <ul className="flex flex-col gap-2">
+              {pageResults.map((r, i) => {
+                const globalIdx = page * PAGE_SIZE + i
+                const isExpanded = expandedIdx === globalIdx
+                const isPending = pendingIdx === globalIdx
+                const hasLongTitle = r.title !== r.quality && r.title.length > 0
+                const sourceLabel = r.source === 'jackett' ? (r.tracker ?? 'jackett') : r.source
+                return (
+                  <li key={globalIdx} className={`overflow-hidden rounded-card border transition-colors ${isPending ? 'border-accent/60 bg-surface-2' : 'border-line bg-surface-2/60'}`}>
+                    <div className="flex items-stretch">
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => setPendingIdx(isPending ? null : globalIdx)}
+                        className="flex min-w-0 flex-1 items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-white/[0.03] disabled:opacity-50"
+                      >
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                          <span className="flex items-center gap-2">
+                            <span className="text-sm font-semibold">{qualityLabel(r)}</span>
+                            <span className="rounded-full bg-surface-3 px-2 py-0.5 text-[11px] font-medium text-muted">{sourceLabel}</span>
+                          </span>
+                          {hasLongTitle && <span className="truncate text-xs text-faint">{r.title}</span>}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2.5 text-xs">
+                          {r.size && <span className="text-muted">{r.size}</span>}
+                          {r.seeds > 0 && (
+                            <span className="flex items-center gap-0.5 font-semibold text-ok">
+                              <Icon name="arrowUp" size={12} strokeWidth={2.6} />{r.seeds}
+                            </span>
+                          )}
+                          {r.language && (
+                            <span className="rounded-full bg-info/15 px-2 py-0.5 font-semibold text-info">{r.language}</span>
+                          )}
+                        </div>
+                      </button>
+                      {hasLongTitle && (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedIdx(isExpanded ? null : globalIdx)}
+                          className="grid w-10 shrink-0 place-items-center border-l border-line text-faint transition-colors hover:text-ink"
+                          aria-label={isExpanded ? 'Hide full name' : 'Show full name'}
+                          aria-expanded={isExpanded}
+                        >
+                          <Icon name={isExpanded ? 'chevron-up' : 'chevron-down'} size={14} />
+                        </button>
+                      )}
+                    </div>
+                    {isExpanded && (
+                      <p className="border-t border-line px-3.5 py-2.5 text-xs leading-relaxed break-words text-muted">{r.title}</p>
+                    )}
+                    {isPending && (
+                      <div className="flex items-center justify-between gap-3 border-t border-accent/30 bg-accent/10 px-3.5 py-2.5">
+                        <span className="truncate text-[13px] font-medium text-ink">Send this release?</span>
+                        <div className="flex shrink-0 gap-2">
+                          <Button size="sm" variant="ghost" onClick={() => setPendingIdx(null)}>Cancel</Button>
+                          <Button size="sm" variant="primary" loading={loading} onClick={() => sendMagnetLink(r.magnet)}>
+                            {loading ? 'Sending…' : 'Send'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-1">
+                <Button size="sm" variant="secondary" icon="chevron-left" disabled={page === 0} onClick={() => goToPage(page - 1)}>Previous</Button>
+                <span className="text-xs text-faint">{page + 1} / {totalPages}</span>
+                <Button size="sm" variant="secondary" disabled={page >= totalPages - 1} onClick={() => goToPage(page + 1)}>
+                  Next <Icon name="chevron-right" size={15} />
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!autoSearching && (
+          <div className="flex flex-col gap-3">
             <button
+              type="button"
               onClick={() => setShowManual(v => !v)}
-              className="flex items-center justify-between text-gray-500 hover:text-gray-300 text-xs py-1 transition-colors"
+              aria-expanded={showManual}
+              className="flex items-center justify-between rounded-btn py-1 text-[13px] font-medium text-muted transition-colors hover:text-ink"
             >
-              <span>{showManual ? 'Hide manual input' : hasResults ? 'Enter magnet manually instead' : 'Enter magnet manually'}</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
-                {showManual
-                  ? <polyline points="18 15 12 9 6 15"/>
-                  : <polyline points="6 9 12 15 18 9"/>}
-              </svg>
+              <span className="flex items-center gap-2">
+                <Icon name="magnet" size={15} />
+                {showManual ? 'Hide manual input' : hasResults ? 'Paste a magnet link instead' : 'Paste a magnet link'}
+              </span>
+              <Icon name={showManual ? 'chevron-up' : 'chevron-down'} size={14} />
             </button>
 
             {showManual && (
-              <div className="flex flex-col gap-3 pt-1">
-                {!hasResults && <p className="text-gray-500 text-xs">No torrents found automatically.</p>}
+              <div className="flex flex-col gap-3">
+                {!hasResults && imdbId && <p className="text-[13px] text-muted">No releases found automatically.</p>}
+                {!imdbId && <p className="text-[13px] text-muted">Automatic search needs the IMDb ID, which isn’t known for this title yet.</p>}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-gray-400 text-xs">Magnet link</label>
+                  <label htmlFor="dl-magnet" className="text-xs font-semibold text-muted">Magnet link or .torrent URL</label>
                   <textarea
+                    id="dl-magnet"
                     value={magnet}
                     onChange={e => setMagnet(e.target.value)}
                     placeholder="magnet:?xt=urn:btih:… or https://…/file.torrent"
                     rows={3}
-                    className="bg-gray-800 text-gray-100 text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none placeholder-gray-600 font-mono"
+                    spellCheck={false}
+                    className={`${fieldClass} resize-none font-mono text-xs`}
                   />
                 </div>
-                <button
-                  onClick={handleManualSend}
-                  disabled={loading || !magnet}
-                  className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm font-medium rounded-lg py-2.5"
-                >
+                <Button variant="primary" loading={loading} disabled={!magnet} onClick={handleManualSend} className="w-full">
                   {loading ? 'Sending…' : 'Send to downloader'}
-                </button>
+                </Button>
               </div>
             )}
           </div>
         )}
 
-        {error && <p className="text-red-400 text-xs">{error}</p>}
+        {error && (
+          <p className="flex items-start gap-2 rounded-btn bg-fail/10 px-3 py-2.5 text-[13px] text-fail">
+            <Icon name="alert" size={15} className="mt-px" />
+            <span className="min-w-0 break-words">{error}</span>
+          </p>
+        )}
       </div>
-    </div>
+    </Sheet>
   )
 }

@@ -63,13 +63,17 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       })
   }, [settings])
 
+  // Refs are updated right away (not only after render) so saving movies then shows
+  // in the same tick pushes both changes to the remote file, not a stale copy.
   const saveMovies = useCallback((next: MovieItem[]) => {
+    moviesRef.current = next
     setMovies(next)
     setStore(KEYS.movies, next)
     push(next, showsRef.current)
   }, [push])
 
   const saveShows = useCallback((next: ShowItem[]) => {
+    showsRef.current = next
     setShows(next)
     setStore(KEYS.shows, next)
     push(moviesRef.current, next)

@@ -21,6 +21,7 @@ export const KEYS = {
   schemaVersion: 'fl:schemaVersion',
   moviesSort: 'fl:moviesSort',
   showsSort: 'fl:showsSort',
+  heroCollapsed: 'fl:heroCollapsed',
 } as const
 
 export const SCHEMA_VERSION = 1

@@ -6,11 +6,12 @@ A personal media tracker that connects TMDB, Jellyfin, and [local-link-downloade
 
 ## Features
 
-- Search movies and TV shows via TMDB
+- Search movies and TV shows via TMDB, with posters, backdrops and trailers (YouTube, via TMDB; no extra key needed)
 - Track status: wanted / downloading / downloaded
 - Sync library from Jellyfin (marks items as downloaded, imports new ones)
 - Queue downloads via local-link-downloader with automatic torrent search (YTS + Torrentio + Jackett)
 - Content language setting — controls titles, overviews, and search results
+- Works on phones: bottom tab bar, swipe-down sheets, and installable to the home screen (web app manifest)
 - **Cross-device sync** — library and settings are stored in a JSON file on local-link-downloader and shared across all devices on your network
 
 ## Setup
@@ -77,7 +78,7 @@ Settings can be pre-configured at build time via a `.env` file. Copy `.env.examp
 
 ## Sync indicator
 
-A small dot appears next to the settings gear when remote sync is active:
+A small dot appears next to the settings gear (on phones, next to the page title) when remote sync is active:
 
 | Color | Meaning |
 |---|---|

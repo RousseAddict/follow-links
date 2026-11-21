@@ -1,6 +1,10 @@
-import { useState } from 'react'
+import { useId, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useSettings } from '../contexts/settings'
 import { useLibrary } from '../contexts/library'
+import { useToast } from '../contexts/toast'
+import { Sheet, SheetHeader, useSheet } from './Sheet'
+import { Icon, Spinner, type IconName } from './Icon'
+import { Button } from './ui'
 import type { Settings } from '../types'
 
 const LANGUAGES = [
@@ -18,10 +22,10 @@ const LANGUAGES = [
 
 type DotStatus = 'ok' | 'partial' | 'empty'
 
-function dot(status: DotStatus): string {
-  if (status === 'ok') return 'bg-green-500'
-  if (status === 'partial') return 'bg-amber-500'
-  return 'bg-gray-600'
+const DOT: Record<DotStatus, { cls: string; label: string }> = {
+  ok: { cls: 'bg-ok', label: 'Set up' },
+  partial: { cls: 'bg-warn', label: 'Partly set up' },
+  empty: { cls: 'bg-surface-3 ring-1 ring-line-strong', label: 'Not set up' },
 }
 
 function allFilled(...values: string[]): DotStatus {
@@ -30,6 +34,9 @@ function allFilled(...values: string[]): DotStatus {
   if (filled > 0) return 'partial'
   return 'empty'
 }
+
+const fieldClass =
+  'w-full rounded-btn border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-ink outline-none transition-[border-color,box-shadow] placeholder:text-faint focus:border-line-strong focus:shadow-[0_0_0_3px_rgb(255_69_58/0.25)]'
 
 interface Props {
   onClose: () => void
@@ -40,18 +47,19 @@ type ActionStatus = 'idle' | 'loading' | 'ok' | 'error'
 export function SettingsModal({ onClose }: Props) {
   const { settings, saveSettings } = useSettings()
   const { syncFromRemote, syncFromJellyfin } = useLibrary()
+  const toast = useToast()
   const [form, setForm] = useState<Settings>(settings)
   const [pullStatus, setPullStatus] = useState<ActionStatus>('idle')
   const [pullMsg, setPullMsg] = useState('')
   const [jellyfinStatus, setJellyfinStatus] = useState<ActionStatus>('idle')
   const [jellyfinMsg, setJellyfinMsg] = useState('')
 
-  const set = (field: keyof Settings) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+  const set = (field: keyof Settings) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [field]: e.target.value }))
 
   const save = () => {
     saveSettings(form)
-    onClose()
+    toast('Settings saved', 'ok')
   }
 
   const handlePullFromRemote = async () => {
@@ -61,7 +69,7 @@ export function SettingsModal({ onClose }: Props) {
       const remoteSettings = await syncFromRemote(form)
       if (remoteSettings === null) {
         setPullStatus('error')
-        setPullMsg('Could not reach remote — check downloader URL and token')
+        setPullMsg('Could not reach remote. Check the downloader URL and token.')
         return
       }
       if (Object.keys(remoteSettings).length > 0) {
@@ -94,141 +102,131 @@ export function SettingsModal({ onClose }: Props) {
   const canSyncJellyfin = !!(form.jellyfinUrl && form.jellyfinApiKey)
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div
-        className="bg-gray-900 rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header — sticky so it stays visible while scrolling */}
-        <div className="sticky top-0 z-10 bg-gray-900 flex items-center justify-between px-5 py-4 border-b border-gray-800">
-          <h3 className="text-gray-100 font-medium">Settings</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="px-5 py-4 flex flex-col gap-3">
-
-          <CollapsibleSection label="TMDB" status={allFilled(form.tmdbApiKey)} defaultOpen>
-            <Field label="API Key" value={form.tmdbApiKey} onChange={set('tmdbApiKey')} placeholder="your_tmdb_api_key" type="password" />
-            <div className="flex flex-col gap-1">
-              <label className="text-gray-400 text-xs">Content language</label>
-              <select
-                value={form.language}
-                onChange={set('language')}
-                className="bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                {LANGUAGES.map(l => (
-                  <option key={l.code} value={l.code}>{l.label}</option>
-                ))}
+    <Sheet
+      label="Settings"
+      onClose={onClose}
+      header={<SheetHeader title="Settings" subtitle="Saved on this device, and synced through your downloader when it’s set up." />}
+      footer={<SaveBar onSave={save} />}
+    >
+      <div className="flex flex-col gap-3 px-5 py-5">
+        <Section label="TMDB" hint="Titles, posters and trailers" icon="film" status={allFilled(form.tmdbApiKey)} defaultOpen>
+          <Field label="API key" value={form.tmdbApiKey} onChange={set('tmdbApiKey')} placeholder="your_tmdb_api_key" type="password" />
+          <FieldShell label="Content language">
+            {id => (
+              <select id={id} value={form.language} onChange={set('language')} className={`${fieldClass} appearance-none bg-[length:16px] bg-[right_12px_center] bg-no-repeat pr-10`} style={{ backgroundImage: CHEVRON }}>
+                {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
               </select>
-            </div>
-          </CollapsibleSection>
-
-          <CollapsibleSection label="local-link-downloader" status={allFilled(form.downloaderUrl)} defaultOpen>
-            <Field label="URL" value={form.downloaderUrl} onChange={set('downloaderUrl')} placeholder="http://localhost:3001" />
-            <Field label="Bearer token" value={form.downloaderToken} onChange={set('downloaderToken')} placeholder="your-password-token" type="password" />
-          </CollapsibleSection>
-
-          <CollapsibleSection label="Folder keys" status={allFilled(form.movieFolderKey, form.tvFolderKey)} defaultOpen>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Movies" value={form.movieFolderKey} onChange={set('movieFolderKey')} placeholder="movies" />
-              <Field label="TV shows" value={form.tvFolderKey} onChange={set('tvFolderKey')} placeholder="tv" />
-            </div>
-          </CollapsibleSection>
-
-          <CollapsibleSection label="Jellyfin" status={allFilled(form.jellyfinUrl, form.jellyfinApiKey)} defaultOpen={hasJellyfin} optional>
-            <Field label="Server URL" value={form.jellyfinUrl} onChange={set('jellyfinUrl')} placeholder="http://192.168.1.x:8096" />
-            <Field label="API key" value={form.jellyfinApiKey} onChange={set('jellyfinApiKey')} placeholder="your_jellyfin_api_key" type="password" />
-          </CollapsibleSection>
-
-          <CollapsibleSection label="Jackett" status={allFilled(form.jackettUrl, form.jackettApiKey)} defaultOpen={hasJackett} optional>
-            <Field label="URL" value={form.jackettUrl} onChange={set('jackettUrl')} placeholder="http://localhost:9117" />
-            <Field label="API key" value={form.jackettApiKey} onChange={set('jackettApiKey')} placeholder="your_jackett_api_key" type="password" />
-          </CollapsibleSection>
-
-          {/* ── Sync actions ─────────────────────────────────────────────── */}
-          <div className="flex flex-col gap-2">
-            <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide px-1">Sync</p>
-
-            <SyncRow
-              label="Pull from remote"
-              description="Re-import library and settings from the downloader file"
-              buttonLabel="Pull"
-              icon={<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>}
-              status={pullStatus}
-              message={pullMsg}
-              disabled={!canPull || pullStatus === 'loading'}
-              onClick={handlePullFromRemote}
-            />
-
-            {(form.jellyfinUrl || hasJellyfin) && (
-              <SyncRow
-                label="Sync from Jellyfin"
-                description="Import movies and shows from your Jellyfin library"
-                buttonLabel="Sync"
-                icon={<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>}
-                status={jellyfinStatus}
-                message={jellyfinMsg}
-                disabled={!canSyncJellyfin || jellyfinStatus === 'loading'}
-                onClick={handleSyncJellyfin}
-              />
             )}
+          </FieldShell>
+        </Section>
+
+        <Section label="local-link-downloader" hint="Where downloads and the sync file live" icon="download" status={allFilled(form.downloaderUrl)} defaultOpen>
+          <Field label="URL" value={form.downloaderUrl} onChange={set('downloaderUrl')} placeholder="http://localhost:3001" />
+          <Field label="Bearer token" value={form.downloaderToken} onChange={set('downloaderToken')} placeholder="your-password-token" type="password" />
+        </Section>
+
+        <Section label="Folder keys" hint="Destination folders on the downloader" icon="layers" status={allFilled(form.movieFolderKey, form.tvFolderKey)} defaultOpen>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Movies" value={form.movieFolderKey} onChange={set('movieFolderKey')} placeholder="movies" />
+            <Field label="TV shows" value={form.tvFolderKey} onChange={set('tvFolderKey')} placeholder="tv" />
           </div>
+        </Section>
 
+        <Section label="Jellyfin" hint="Import what you already have" icon="tv" status={allFilled(form.jellyfinUrl, form.jellyfinApiKey)} defaultOpen={hasJellyfin} optional>
+          <Field label="Server URL" value={form.jellyfinUrl} onChange={set('jellyfinUrl')} placeholder="http://192.168.1.x:8096" />
+          <Field label="API key" value={form.jellyfinApiKey} onChange={set('jellyfinApiKey')} placeholder="your_jellyfin_api_key" type="password" />
+        </Section>
+
+        <Section label="Jackett" hint="More release sources" icon="search" status={allFilled(form.jackettUrl, form.jackettApiKey)} defaultOpen={hasJackett} optional>
+          <Field label="URL" value={form.jackettUrl} onChange={set('jackettUrl')} placeholder="http://localhost:9117" />
+          <Field label="API key" value={form.jackettApiKey} onChange={set('jackettApiKey')} placeholder="your_jackett_api_key" type="password" />
+        </Section>
+
+        <div className="mt-3 flex flex-col gap-2">
+          <h3 className="px-1 text-xs font-semibold uppercase tracking-[0.06em] text-faint">Sync</h3>
+          <SyncRow
+            label="Pull from remote"
+            description="Re-import library and settings from the downloader file"
+            buttonLabel="Pull"
+            icon="download"
+            status={pullStatus}
+            message={pullMsg}
+            disabled={!canPull || pullStatus === 'loading'}
+            onClick={handlePullFromRemote}
+          />
+          {(form.jellyfinUrl || hasJellyfin) && (
+            <SyncRow
+              label="Sync from Jellyfin"
+              description="Import movies and shows from your Jellyfin library"
+              buttonLabel="Sync"
+              icon="sync"
+              status={jellyfinStatus}
+              message={jellyfinMsg}
+              disabled={!canSyncJellyfin || jellyfinStatus === 'loading'}
+              onClick={handleSyncJellyfin}
+            />
+          )}
         </div>
 
-        {/* Footer — sticky so it stays visible while scrolling */}
-        <div className="sticky bottom-0 bg-gray-900 px-5 py-4 border-t border-gray-800">
-          <button
-            onClick={save}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg py-2.5"
-          >
-            Save
-          </button>
-        </div>
+        <p className="mt-3 text-center text-[11px] text-faint">
+          follow-links · build <span className="font-mono">{__COMMIT_HASH__}</span>
+        </p>
       </div>
+    </Sheet>
+  )
+}
+
+const CHEVRON = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a1a1a6' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`
+
+function SaveBar({ onSave }: { onSave: () => void }) {
+  const { close } = useSheet()
+  return (
+    <div className="px-5 py-4">
+      <Button variant="primary" className="w-full" onClick={() => { onSave(); close() }}>Save</Button>
     </div>
   )
 }
 
-interface CollapsibleSectionProps {
+interface SectionProps {
   label: string
+  hint: string
+  icon: IconName
   status: DotStatus
   defaultOpen: boolean
   optional?: boolean
-  children: React.ReactNode
+  children: ReactNode
 }
 
-function CollapsibleSection({ label, status, defaultOpen, optional, children }: CollapsibleSectionProps) {
+function Section({ label, hint, icon, status, defaultOpen, optional, children }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen)
-
+  const panelId = useId()
   return (
-    <div className="border border-gray-800 rounded-xl overflow-hidden">
+    <div className="overflow-hidden rounded-panel border border-line bg-surface-2/50">
       <button
+        type="button"
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800/50 transition-colors"
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.03]"
       >
-        <div className="flex items-center gap-2.5">
-          <span className={`w-2 h-2 rounded-full shrink-0 ${dot(status)}`} />
-          <span className="text-gray-200 text-sm font-medium">{label}</span>
-          {optional && (
-            <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded font-medium">optional</span>
-          )}
-        </div>
-        <svg
-          xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
-          fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-          className={`text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`}
-        >
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
+        <span className="relative grid size-9 shrink-0 place-items-center rounded-[10px] bg-surface-3 text-muted">
+          <Icon name={icon} size={17} />
+          <span className={`absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-surface-2 ${DOT[status].cls}`} title={DOT[status].label} />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="flex items-center gap-2 text-sm font-semibold">
+            {label}
+            {optional && <span className="rounded-full bg-surface-3 px-2 py-0.5 text-[10.5px] font-medium text-faint">optional</span>}
+          </span>
+          <span className="truncate text-xs text-faint">
+            {status !== 'ok' && <span className={status === 'partial' ? 'text-warn' : optional ? '' : 'text-muted'}>{DOT[status].label} · </span>}
+            {hint}
+          </span>
+        </span>
+        <Icon name="chevron-down" size={15} className={`text-faint transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="px-4 pb-4 pt-1 flex flex-col gap-3 border-t border-gray-800">
+        <div id={panelId} className="flex flex-col gap-3 border-t border-line px-4 pb-4 pt-3.5">
           {children}
         </div>
       )}
@@ -236,26 +234,41 @@ function CollapsibleSection({ label, status, defaultOpen, optional, children }: 
   )
 }
 
+function FieldShell({ label, children }: { label: string; children: (id: string) => ReactNode }) {
+  const id = useId()
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs font-semibold text-muted">{label}</label>
+      {children(id)}
+    </div>
+  )
+}
+
 interface FieldProps {
   label: string
   value: string
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void
   placeholder: string
   type?: string
 }
 
 function Field({ label, value, onChange, placeholder, type = 'text' }: FieldProps) {
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-gray-400 text-xs">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        className="bg-gray-800 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-gray-600"
-      />
-    </div>
+    <FieldShell label={label}>
+      {id => (
+        <input
+          id={id}
+          type={type}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          autoComplete="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          className={fieldClass}
+        />
+      )}
+    </FieldShell>
   )
 }
 
@@ -263,7 +276,7 @@ interface SyncRowProps {
   label: string
   description: string
   buttonLabel: string
-  icon: React.ReactNode
+  icon: IconName
   status: ActionStatus
   message: string
   disabled: boolean
@@ -272,28 +285,19 @@ interface SyncRowProps {
 
 function SyncRow({ label, description, buttonLabel, icon, status, message, disabled, onClick }: SyncRowProps) {
   return (
-    <div className="border border-gray-800 rounded-xl px-4 py-3 flex flex-col gap-2">
+    <div className="flex flex-col gap-2 rounded-panel border border-line bg-surface-2/50 px-4 py-3.5">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-col gap-0.5 min-w-0">
-          <span className="text-gray-200 text-sm font-medium">{label}</span>
-          <span className="text-gray-500 text-xs">{description}</span>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-sm font-semibold">{label}</span>
+          <span className="text-xs text-faint">{description}</span>
         </div>
-        <button
-          onClick={onClick}
-          disabled={disabled}
-          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed text-gray-300 shrink-0 transition-colors"
-        >
-          {status === 'loading'
-            ? <svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-            : icon
-          }
+        <Button size="sm" variant="secondary" disabled={disabled} onClick={onClick} className="shrink-0">
+          {status === 'loading' ? <Spinner size={14} /> : <Icon name={icon} size={14} />}
           {status === 'loading' ? 'Working…' : buttonLabel}
-        </button>
+        </Button>
       </div>
       {message && (
-        <p className={`text-xs ${status === 'error' ? 'text-red-400' : 'text-green-400'}`}>
-          {message}
-        </p>
+        <p className={`text-xs ${status === 'error' ? 'text-fail' : 'text-ok'}`}>{message}</p>
       )}
     </div>
   )

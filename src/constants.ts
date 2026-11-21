@@ -1,12 +1,9 @@
 import type { MediaStatus } from './types'
 
-export const STATUS_BADGE: Record<MediaStatus, string> = {
-  wanted: 'bg-yellow-600 text-yellow-100',
-  downloading: 'bg-blue-600 text-blue-100',
-  downloaded: 'bg-green-700 text-green-100',
-}
-
-export const SEASON_STATUS_CLASSES: Record<MediaStatus | 'unmonitored', string> = {
-  ...STATUS_BADGE,
-  unmonitored: 'bg-gray-700 text-gray-400',
+/** Soft pill colours for a status, readable on dark surfaces. */
+export const STATUS_PILL: Record<MediaStatus | 'unmonitored', string> = {
+  wanted: 'bg-wanted/15 text-wanted-text',
+  downloading: 'bg-downloading/25 text-downloading-text',
+  downloaded: 'bg-ok/15 text-ok',
+  unmonitored: 'bg-surface-3 text-faint',
 }

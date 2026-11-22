@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { fetchJobs } from '../lib/downloader'
-import { useSettings } from './settings'
+import { useDownloader } from '../hooks/useDownloader'
 import { useLibrary } from './library'
 import type { DownloaderJob, MovieItem, ShowItem } from '../types'
 
@@ -55,7 +54,7 @@ function syncCompletedJobs(jobs: DownloaderJob[], lib: LibrarySnapshot) {
 }
 
 export function JobsProvider({ children }: { children: ReactNode }) {
-  const { settings } = useSettings()
+  const downloader = useDownloader()
   const { movies, shows, saveMovies, saveShows } = useLibrary()
   const [jobs, setJobs] = useState<DownloaderJob[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -67,13 +66,13 @@ export function JobsProvider({ children }: { children: ReactNode }) {
   useEffect(() => { libRef.current = { movies, shows, saveMovies, saveShows } }, [movies, shows, saveMovies, saveShows])
 
   const refresh = useCallback(async () => {
-    if (!settings.downloaderUrl) {
+    if (!downloader) {
       setError('No downloader URL is set')
       setLoaded(true)
       return
     }
     try {
-      const data = await fetchJobs(settings.downloaderUrl, settings.downloaderToken)
+      const data = await downloader.listJobs()
       setJobs(data)
       setLastUpdated(new Date())
       setError('')
@@ -83,7 +82,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoaded(true)
     }
-  }, [settings.downloaderUrl, settings.downloaderToken])
+  }, [downloader])
 
   // Poll while the Queue page is open, or while something in the library is downloading
   // (so posters show live progress and finished downloads flip to "downloaded").

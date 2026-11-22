@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { sendMagnet } from '../lib/downloader'
+import type { MediaKind } from '../lib/downloader'
+import { useDownloader } from '../hooks/useDownloader'
 import { findMovieTorrents, findSeasonTorrents, type TorrentResult } from '../lib/torrent'
 import { useSettings } from '../contexts/settings'
 import { Sheet, SheetHeader } from './Sheet'
@@ -9,7 +10,7 @@ import { Button } from './ui'
 interface Props {
   title: string
   searchQuery: string
-  folderKey: string
+  kind: MediaKind
   imdbId?: string
   season?: number
   onSuccess: (jobId: string) => void
@@ -31,9 +32,10 @@ function qualityLabel(r: TorrentResult): string {
 const fieldClass =
   'w-full rounded-btn border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-ink outline-none transition-[border-color,box-shadow] placeholder:text-faint focus:border-line-strong focus:shadow-[0_0_0_3px_rgb(255_69_58/0.25)]'
 
-export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, imdbId, season, onSuccess, onClose }: Props) {
+export function DownloadModal({ title, searchQuery, kind, imdbId, season, onSuccess, onClose }: Props) {
   const { settings } = useSettings()
-  const [folder, setFolder] = useState(defaultFolder)
+  const downloader = useDownloader()
+  const [folder, setFolder] = useState(() => downloader?.defaultFolder(kind) ?? '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -77,10 +79,14 @@ export function DownloadModal({ title, searchQuery, folderKey: defaultFolder, im
   const hasResults = (autoResults?.length ?? 0) > 0
 
   const sendMagnetLink = async (magnetLink: string) => {
+    if (!downloader) {
+      setError('No downloader is set up. Add its URL in Settings.')
+      return
+    }
     setLoading(true)
     setError('')
     try {
-      const result = await sendMagnet(magnetLink, folder, settings.downloaderUrl, settings.downloaderToken)
+      const result = await downloader.addMagnet(magnetLink, folder)
       onSuccess(result.id)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to send')

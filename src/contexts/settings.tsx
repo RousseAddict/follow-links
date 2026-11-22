@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import { getStore, setStore, KEYS, SETTING_DEFAULTS } from '../lib/store'
-import { pushRemoteLibrary, isRemoteConfigured } from '../lib/remote-store'
-import type { Settings, MovieItem, ShowItem } from '../types'
+import { setStore, KEYS, loadSettings, settingsOverrides } from '../lib/store'
+import type { Settings } from '../types'
 
 interface SettingsContextValue {
   settings: Settings
@@ -10,29 +9,13 @@ interface SettingsContextValue {
 
 const Ctx = createContext<SettingsContextValue | null>(null)
 
-function loadSettings(): Settings {
-  const stored = getStore<Partial<Settings>>(KEYS.settings, {})
-  return Object.fromEntries(
-    (Object.keys(SETTING_DEFAULTS) as (keyof Settings)[]).map(k => [
-      k,
-      stored[k] || SETTING_DEFAULTS[k],
-    ])
-  ) as unknown as Settings
-}
-
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(loadSettings)
 
+  // Settings stay on this device. Shared values belong in config.js (env vars on the container).
   const saveSettings = useCallback((next: Settings) => {
     setSettings(next)
-    setStore(KEYS.settings, next)
-    if (isRemoteConfigured(next)) {
-      const movies = getStore<MovieItem[]>(KEYS.movies, [])
-      const shows = getStore<ShowItem[]>(KEYS.shows, [])
-      pushRemoteLibrary(movies, shows, next).catch(err =>
-        console.warn('[follow-links] Failed to push settings to remote:', err)
-      )
-    }
+    setStore(KEYS.settings, settingsOverrides(next))
   }, [])
 
   return <Ctx.Provider value={{ settings, saveSettings }}>{children}</Ctx.Provider>

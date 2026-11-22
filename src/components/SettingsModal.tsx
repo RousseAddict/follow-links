@@ -46,7 +46,7 @@ type ActionStatus = 'idle' | 'loading' | 'ok' | 'error'
 
 export function SettingsModal({ onClose }: Props) {
   const { settings, saveSettings } = useSettings()
-  const { syncFromRemote, syncFromJellyfin } = useLibrary()
+  const { remoteEnabled, reloadFromRemote, syncFromJellyfin } = useLibrary()
   const toast = useToast()
   const [form, setForm] = useState<Settings>(settings)
   const [pullStatus, setPullStatus] = useState<ActionStatus>('idle')
@@ -66,17 +66,13 @@ export function SettingsModal({ onClose }: Props) {
     setPullStatus('loading')
     setPullMsg('')
     try {
-      const remoteSettings = await syncFromRemote(form)
-      if (remoteSettings === null) {
+      if (!(await reloadFromRemote())) {
         setPullStatus('error')
-        setPullMsg('Could not reach remote. Check the downloader URL and token.')
+        setPullMsg('Could not reach the sync file. Check the downloader URL, token and movies folder key.')
         return
       }
-      if (Object.keys(remoteSettings).length > 0) {
-        setForm(f => ({ ...f, ...remoteSettings }))
-      }
       setPullStatus('ok')
-      setPullMsg('Library and settings pulled from remote')
+      setPullMsg('Library pulled from remote')
     } catch {
       setPullStatus('error')
       setPullMsg('Pull failed')
@@ -98,14 +94,13 @@ export function SettingsModal({ onClose }: Props) {
 
   const hasJellyfin = !!(settings.jellyfinUrl || settings.jellyfinApiKey)
   const hasJackett = !!(settings.jackettUrl || settings.jackettApiKey)
-  const canPull = !!(form.downloaderUrl)
   const canSyncJellyfin = !!(form.jellyfinUrl && form.jellyfinApiKey)
 
   return (
     <Sheet
       label="Settings"
       onClose={onClose}
-      header={<SheetHeader title="Settings" subtitle="Saved on this device, and synced through your downloader when it’s set up." />}
+      header={<SheetHeader title="Settings" subtitle="Saved on this device. Your library syncs through the downloader when it’s set up." />}
       footer={<SaveBar onSave={save} />}
     >
       <div className="flex flex-col gap-3 px-5 py-5">
@@ -146,12 +141,12 @@ export function SettingsModal({ onClose }: Props) {
           <h3 className="px-1 text-xs font-semibold uppercase tracking-[0.06em] text-faint">Sync</h3>
           <SyncRow
             label="Pull from remote"
-            description="Re-import library and settings from the downloader file"
+            description="Replace this device’s library with the one in the sync file"
             buttonLabel="Pull"
             icon="download"
             status={pullStatus}
             message={pullMsg}
-            disabled={!canPull || pullStatus === 'loading'}
+            disabled={!remoteEnabled || pullStatus === 'loading'}
             onClick={handlePullFromRemote}
           />
           {(form.jellyfinUrl || hasJellyfin) && (

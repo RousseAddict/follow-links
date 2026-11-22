@@ -1,11 +1,10 @@
-import { createContext, useContext, useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react'
 import { getStore, setStore, KEYS } from '../lib/store'
-import { fetchRemoteLibrary, pushRemoteLibrary, isRemoteConfigured } from '../lib/remote-store'
+import { createLibraryStore } from '../lib/backends'
+import { createPushQueue, type SyncStatus } from '../lib/library-store'
 import { fetchJellyfinMovies, fetchJellyfinShows, fetchJellyfinSeasons, jellyfinPosterUrl, parseTmdbId } from '../lib/jellyfin'
 import { useSettings } from './settings'
 import type { MovieItem, ShowItem, SeasonItem, Settings } from '../types'
-
-export type SyncStatus = 'idle' | 'syncing' | 'ok'
 
 interface LibraryContextValue {
   movies: MovieItem[]
@@ -13,91 +12,95 @@ interface LibraryContextValue {
   saveMovies: (next: MovieItem[]) => void
   saveShows: (next: ShowItem[]) => void
   syncStatus: SyncStatus
-  syncFromRemote: (s: Settings) => Promise<Partial<Settings> | null>
+  /** True when a shared store is set up. */
+  remoteEnabled: boolean
+  /** Replaces this device's library with the shared one. False when it can't be reached. */
+  reloadFromRemote: () => Promise<boolean>
   syncFromJellyfin: (s: Settings) => Promise<string>
 }
 
 const Ctx = createContext<LibraryContextValue | null>(null)
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
-  const { settings } = useSettings()
+  const { downloaderUrl, downloaderToken, movieFolderKey } = useSettings().settings
   const [movies, setMovies] = useState<MovieItem[]>(() => getStore(KEYS.movies, []))
   const [shows, setShows] = useState<ShowItem[]>(() => getStore(KEYS.shows, []))
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
 
-  // Refs so push callbacks always see the latest data without re-creating them
+  // Every write moves the refs right away (not after render), so saving movies then shows
+  // in the same tick builds on both changes and the push carries the latest of each.
   const moviesRef = useRef(movies)
   const showsRef = useRef(shows)
-  useEffect(() => { moviesRef.current = movies }, [movies])
-  useEffect(() => { showsRef.current = shows }, [shows])
 
-  // On mount: pull remote and use as source of truth if available
-  useEffect(() => {
-    if (!isRemoteConfigured(settings)) return
-    setSyncStatus('syncing') // eslint-disable-line react-hooks/set-state-in-effect
-    fetchRemoteLibrary(settings)
-      .then(remote => {
-        if (!remote) {
-          console.log('[follow-links] Remote library not available, using localStorage')
-          setSyncStatus('idle')
-          return
-        }
-        setMovies(remote.movies)
-        setShows(remote.shows)
-        setStore(KEYS.movies, remote.movies)
-        setStore(KEYS.shows, remote.shows)
-        moviesRef.current = remote.movies
-        showsRef.current = remote.shows
-        setSyncStatus('ok')
-      })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const store = useMemo(
+    () => createLibraryStore({ downloaderUrl, downloaderToken, movieFolderKey }),
+    [downloaderUrl, downloaderToken, movieFolderKey],
+  )
+  const queue = useMemo(() => store && createPushQueue(store, setSyncStatus), [store])
 
-  const push = useCallback((nextMovies: MovieItem[], nextShows: ShowItem[]) => {
-    if (!isRemoteConfigured(settings)) return
-    setSyncStatus('syncing')
-    pushRemoteLibrary(nextMovies, nextShows, settings)
-      .then(() => setSyncStatus('ok'))
-      .catch(err => {
-        console.warn('[follow-links] Failed to push to remote library:', err)
-        setSyncStatus('idle')
-      })
-  }, [settings])
-
-  // Refs are updated right away (not only after render) so saving movies then shows
-  // in the same tick pushes both changes to the remote file, not a stale copy.
-  const saveMovies = useCallback((next: MovieItem[]) => {
-    moviesRef.current = next
-    setMovies(next)
-    setStore(KEYS.movies, next)
-    push(next, showsRef.current)
-  }, [push])
-
-  const saveShows = useCallback((next: ShowItem[]) => {
-    showsRef.current = next
-    setShows(next)
-    setStore(KEYS.shows, next)
-    push(moviesRef.current, next)
-  }, [push])
-
-  const syncFromRemote = useCallback(async (s: Settings): Promise<Partial<Settings> | null> => {
-    if (!isRemoteConfigured(s)) return null
-    setSyncStatus('syncing')
-    try {
-      const remote = await fetchRemoteLibrary(s)
-      if (!remote) { setSyncStatus('idle'); return null }
-      setMovies(remote.movies)
-      setShows(remote.shows)
-      setStore(KEYS.movies, remote.movies)
-      setStore(KEYS.shows, remote.shows)
-      moviesRef.current = remote.movies
-      showsRef.current = remote.shows
-      setSyncStatus('ok')
-      return remote.settings ?? null
-    } catch {
-      setSyncStatus('idle')
-      return null
+  /** Updates state, the local copy and the refs together. */
+  const write = useCallback((next: { movies?: MovieItem[]; shows?: ShowItem[] }) => {
+    if (next.movies) {
+      moviesRef.current = next.movies
+      setMovies(next.movies)
+      setStore(KEYS.movies, next.movies)
+    }
+    if (next.shows) {
+      showsRef.current = next.shows
+      setShows(next.shows)
+      setStore(KEYS.shows, next.shows)
     }
   }, [])
+
+  const push = useCallback(() => {
+    queue?.push({ movies: moviesRef.current, shows: showsRef.current, updatedAt: new Date().toISOString() })
+  }, [queue])
+
+  // On start, and whenever the store settings change, the shared library wins over this device's copy.
+  useEffect(() => {
+    if (!store) return
+    let cancelled = false
+    setSyncStatus('syncing') // eslint-disable-line react-hooks/set-state-in-effect
+    store.load().then(remote => {
+      if (cancelled) return
+      if (!remote) {
+        console.log('[follow-links] Shared library not available, using this device\'s copy')
+        setSyncStatus('idle')
+        return
+      }
+      // A file the app never wrote (the empty template) gets this device's library instead of wiping it.
+      if (!remote.updatedAt && (moviesRef.current.length > 0 || showsRef.current.length > 0)) {
+        push()
+        return
+      }
+      write(remote)
+      setSyncStatus('ok')
+    })
+    return () => { cancelled = true }
+  }, [store, push, write])
+
+  const saveMovies = useCallback((next: MovieItem[]) => {
+    write({ movies: next })
+    push()
+  }, [write, push])
+
+  const saveShows = useCallback((next: ShowItem[]) => {
+    write({ shows: next })
+    push()
+  }, [write, push])
+
+  const reloadFromRemote = useCallback(async (): Promise<boolean> => {
+    if (!store) return false
+    setSyncStatus('syncing')
+    const remote = await store.load()
+    if (!remote) {
+      setSyncStatus('idle')
+      return false
+    }
+    write(remote)
+    setSyncStatus('ok')
+    return true
+  }, [store, write])
 
   const syncFromJellyfin = useCallback(async (s: Settings): Promise<string> => {
     // ── Movies ────────────────────────────────────────────────────────────
@@ -120,10 +123,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         moviesAdded++
       }
     }
-    const nextMovies = Array.from(movieMap.values())
-    setMovies(nextMovies)
-    setStore(KEYS.movies, nextMovies)
-    moviesRef.current = nextMovies
+    write({ movies: Array.from(movieMap.values()) })
 
     // ── Shows ─────────────────────────────────────────────────────────────
     const jellyfinShows = await fetchJellyfinShows(s.jellyfinUrl, s.jellyfinApiKey, s.language)
@@ -166,18 +166,19 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         showsAdded++
       }
     }
-    const nextShows = Array.from(showMap.values())
-    setShows(nextShows)
-    setStore(KEYS.shows, nextShows)
-    showsRef.current = nextShows
-
-    push(nextMovies, nextShows)
+    write({ shows: Array.from(showMap.values()) })
+    push()
 
     return `Movies: +${moviesAdded} new, ${moviesUpdated} updated · Shows: +${showsAdded} new, ${showsUpdated} updated`
-  }, [push])
+  }, [write, push])
 
   return (
-    <Ctx.Provider value={{ movies, shows, saveMovies, saveShows, syncStatus, syncFromRemote, syncFromJellyfin }}>
+    <Ctx.Provider value={{
+      movies, shows, saveMovies, saveShows,
+      syncStatus: store ? syncStatus : 'idle',
+      remoteEnabled: !!store,
+      reloadFromRemote, syncFromJellyfin,
+    }}>
       {children}
     </Ctx.Provider>
   )

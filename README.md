@@ -12,37 +12,29 @@ A personal media tracker that connects TMDB, Jellyfin, and [local-link-downloade
 - Queue downloads via local-link-downloader with automatic torrent search (YTS + Torrentio + Jackett)
 - Content language setting — controls titles, overviews, and search results
 - Works on phones: bottom tab bar, swipe-down sheets, and installable to the home screen (web app manifest)
-- **Cross-device sync** — library and settings are stored in a JSON file on local-link-downloader and shared across all devices on your network
+- **Cross-device sync** — the library is stored in a JSON file on local-link-downloader and shared across all devices on your network
 
 ## Setup
 
-### First device
+### Settings
 
-1. Open the app — the Settings modal will appear automatically
-2. Fill in your credentials (see fields below)
-3. Click Save — settings and library are written to localStorage
+Settings come from environment variables on the container (see [Environment variables](#environment-variables)), so every device that opens the app gets them. Anything you change in the Settings modal is saved on that device only and wins over the container's value. Without the container (e.g. `npm run dev`), fill in the Settings modal on each device.
 
 ### Enabling cross-device sync
 
-Cross-device sync is optional. It uses local-link-downloader's JSON file API to store the library and settings alongside your downloads.
+Cross-device sync is optional. It keeps the library (movies and shows, not settings) in a JSON file served by local-link-downloader's JSON file API.
 
 **1. Create the sync file** in your movies folder on the machine running local-link-downloader:
 
 ```bash
-echo '{"movies":[],"shows":[],"settings":{},"updatedAt":""}' > /path/to/movies-folder/follow-links-library.json
+echo '{"movies":[],"shows":[],"updatedAt":""}' > /path/to/movies-folder/follow-links-library.json
 ```
 
 A ready-made example file is included at the root of this repo: `follow-links-library.json`.
 
-**2. Configure the downloader URL** in Settings on your first device. On next save, all settings and library data are pushed to the file automatically.
+**2. Point the app at the downloader** (`Downloader URL`, `Bearer token`, `Movies folder key`). As soon as the downloader is set up, the library in the file replaces the one on the device. The first device to find the file still empty (never written by the app) fills it with its own library instead.
 
-**3. New device bootstrap** — on any additional device, open the app, enter only the `Downloader URL` and `Bearer token`, then save. On the next load the app will pull all other settings (TMDB key, Jellyfin, folder keys…) and the full library from the remote file.
-
-> The sync file must exist on disk before the first push. Afterwards every save (library change or settings update) pushes automatically. If the file is unreachable the app falls back to localStorage silently.
-
-### Settings-only setup (no sync)
-
-If you don't need cross-device sync, just fill in the Settings modal on each device. Values are persisted in localStorage only.
+> The sync file must exist on disk: local-link-downloader only overwrites files, it never creates them. Every library change is pushed automatically. If the file is unreachable the app keeps using the copy on the device.
 
 ## Settings fields
 
@@ -61,7 +53,7 @@ If you don't need cross-device sync, just fill in the Settings modal on each dev
 
 ## Environment variables
 
-Settings can be pre-configured at build time via a `.env` file. Copy `.env.example` to `.env` and fill in values before running `npm run dev` or `npm run build`. Any value saved through the in-app Settings modal is stored in `localStorage` and takes precedence.
+In the Docker image these are read when the container starts (written to `config.js`), so changing them only needs a restart. For `npm run dev` or `npm run build`, copy `.env.example` to `.env` and fill in values. A value changed in the in-app Settings modal is stored in that device's `localStorage` and takes precedence.
 
 | Variable | Default | Description |
 |---|---|---|

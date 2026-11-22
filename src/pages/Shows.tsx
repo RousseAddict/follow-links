@@ -261,7 +261,7 @@ export function Shows() {
         <DownloadModal
           title={`${downloadTarget.show.title} · Season ${downloadTarget.season.seasonNumber}`}
           searchQuery={`${downloadTarget.show.title} S${String(downloadTarget.season.seasonNumber).padStart(2, '0')}`}
-          folderKey={settings.tvFolderKey}
+          kind="tv"
           imdbId={downloadTarget.show.imdbId}
           season={downloadTarget.season.seasonNumber}
           onSuccess={jobId => handleDownloadSuccess(downloadTarget.show, downloadTarget.season.seasonNumber, jobId)}

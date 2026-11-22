@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
-import { useLibrary, type SyncStatus } from '../contexts/library'
+import { useLibrary } from '../contexts/library'
+import type { SyncStatus } from '../lib/library-store'
 import { useSearch } from '../contexts/search'
 import { Icon, type IconName } from './Icon'
 import { IconButton } from './ui'
@@ -7,7 +8,7 @@ import { IconButton } from './ui'
 const SYNC: Record<SyncStatus, { cls: string; title: string } | null> = {
   idle: null,
   syncing: { cls: 'bg-warn animate-pulse', title: 'Syncing library…' },
-  ok: { cls: 'bg-ok shadow-[0_0_0_3px_rgb(48_209_88/0.18)]', title: 'Library synced with local-link-downloader' },
+  ok: { cls: 'bg-ok shadow-[0_0_0_3px_rgb(48_209_88/0.18)]', title: 'Library synced' },
 }
 
 export function SyncDot() {

@@ -10,9 +10,7 @@ import { LibraryProvider } from './contexts/library'
 import { JobsProvider } from './contexts/jobs'
 import { SearchProvider } from './contexts/search'
 import { ToastProvider } from './contexts/toast'
-import { fetchRemoteLibrary } from './lib/remote-store'
-import { getStore, setStore, KEYS, SETTING_DEFAULTS, SCHEMA_VERSION } from './lib/store'
-import type { Settings, ShowItem } from './types'
+import { loadSettings } from './lib/store'
 
 /** Each tab opens at the top, like a native app. */
 function ScrollToTop() {
@@ -21,57 +19,9 @@ function ScrollToTop() {
   return null
 }
 
-function migrateData() {
-  const version = getStore<number>(KEYS.schemaVersion, 0)
-
-  if (version < 1) {
-    const shows = getStore<ShowItem[]>(KEYS.shows, [])
-    if (shows.some(s => !Array.isArray(s.seasons))) {
-      setStore(KEYS.shows, shows.map(s => ({ ...s, seasons: s.seasons ?? [] })))
-    }
-  }
-
-  if (version < SCHEMA_VERSION) {
-    setStore(KEYS.schemaVersion, SCHEMA_VERSION)
-  }
-}
-
 export default function App() {
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [ready, setReady] = useState(false)
-
-  useEffect(() => {
-    const stored = getStore<Partial<Settings>>(KEYS.settings, {})
-    const local: Settings = { ...SETTING_DEFAULTS, ...stored }
-
-    migrateData()
-
-    const finish = (final: Settings) => {
-      setStore(KEYS.settings, final)
-      if (!final.tmdbApiKey) setSettingsOpen(true)
-      setReady(true)
-    }
-
-    if (!local.downloaderUrl || !local.movieFolderKey) {
-      finish(local)
-      return
-    }
-
-    // Try to pull settings from remote — lets a new device bootstrap by only entering the downloader URL
-    fetchRemoteLibrary(local).then(remote => {
-      if (!remote?.settings) { finish(local); return }
-      finish({
-        ...SETTING_DEFAULTS,
-        ...local,
-        ...remote.settings,
-        // Never override the bootstrap credentials from remote
-        downloaderUrl: local.downloaderUrl,
-        downloaderToken: local.downloaderToken,
-      })
-    })
-  }, [])
-
-  if (!ready) return null
+  // Nothing set up on this device yet: open Settings right away.
+  const [settingsOpen, setSettingsOpen] = useState(() => !loadSettings().tmdbApiKey)
 
   const openSettings = () => setSettingsOpen(true)
 

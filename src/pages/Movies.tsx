@@ -214,7 +214,7 @@ export function Movies() {
         <DownloadModal
           title={`${downloading.title}${downloading.year ? ` (${downloading.year})` : ''}`}
           searchQuery={`${downloading.title} ${downloading.year}`}
-          folderKey={settings.movieFolderKey}
+          kind="movie"
           imdbId={downloading.imdbId}
           onSuccess={jobId => handleDownloadSuccess(downloading, jobId)}
           onClose={() => setDownloading(null)}
